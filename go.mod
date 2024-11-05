@@ -2,7 +2,11 @@ module container-solutions.com/continuous-compliance
 
 go 1.23.2
 
-require github.com/open-policy-agent/opa v0.69.0
+require (
+	github.com/open-policy-agent/opa v0.69.0
+	github.com/spf13/cobra v1.8.1
+	gopkg.in/yaml.v2 v2.4.0
+)
 
 require (
 	github.com/OneOfOne/xxhash v1.2.8 // indirect
@@ -23,7 +27,6 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
@@ -35,6 +38,5 @@ require (
 	go.opentelemetry.io/otel/trace v1.28.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )

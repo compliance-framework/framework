@@ -50,11 +50,12 @@ func VerifyPolicies(cmd *cobra.Command, args []string) {
 	for _, module := range compiler.Modules {
 		annotations := internal.ExtractAnnotations(module.Comments)
 		if annotations["cf_enabled"] == nil {
+			continue
 		}
 		if _, exists := annotations["cf_enabled"]; !exists {
 			continue
 		}
-		if annotations["cf_enabled"] != "true" {
+		if annotations["cf_enabled"] != true {
 			continue
 		}
 		missingAnnotations := internal.SubtractSlice(internal.RequiredAnnotations, slices.Collect(maps.Keys(annotations)))
