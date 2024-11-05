@@ -34,6 +34,7 @@ func RunAgent(cmd *cobra.Command, args []string) {
 	ctx := context.Background()
 
 	// First we want to fetch all the policy bundles
+	// Hardcoded until plugin system is incorporated
 	pluginList := []plugin.Plugin{
 		plugins.NewLocalSSH(),
 	}
