@@ -48,6 +48,7 @@ func VerifyPolicies(cmd *cobra.Command, args []string) {
 
 	valid := true
 	for _, module := range compiler.Modules {
+
 		annotations := internal.ExtractAnnotations(module.Comments)
 		if annotations["cf_enabled"] == nil {
 			continue

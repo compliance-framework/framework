@@ -3,6 +3,7 @@ module container-solutions.com/continuous-compliance
 go 1.23.2
 
 require (
+	github.com/chris-cmsoft/conftojson v0.0.0-20241105132434-7c8873e5cbb6
 	github.com/open-policy-agent/opa v0.69.0
 	github.com/spf13/cobra v1.8.1
 	gopkg.in/yaml.v2 v2.4.0
