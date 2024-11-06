@@ -1,4 +1,4 @@
-module container-solutions.com/continuous-compliance
+module github.com/chris-cmsoft/concom
 
 go 1.23.2
 

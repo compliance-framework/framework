@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"container-solutions.com/continuous-compliance/internal"
 	"context"
+	"github.com/chris-cmsoft/concom/internal"
 	"github.com/spf13/cobra"
 	"log"
 	"maps"

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"container-solutions.com/continuous-compliance/cmd"
 	"fmt"
+	"github.com/chris-cmsoft/concom/cmd"
 	"github.com/spf13/cobra"
 	"os"
 )

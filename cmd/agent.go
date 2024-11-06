@@ -1,11 +1,11 @@
 package cmd
 
 import (
-	"container-solutions.com/continuous-compliance/internal"
-	"container-solutions.com/continuous-compliance/plugin"
-	"container-solutions.com/continuous-compliance/plugins"
 	"context"
 	"fmt"
+	"github.com/chris-cmsoft/concom/internal"
+	"github.com/chris-cmsoft/concom/plugin"
+	"github.com/chris-cmsoft/concom/plugins"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/spf13/cobra"
 	"log"
