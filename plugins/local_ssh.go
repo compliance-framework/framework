@@ -17,7 +17,8 @@ type LocalSSH struct {
 	data map[string]interface{}
 }
 
-func (l *LocalSSH) PrepareForEval(ctx context.Context) error {
+func (l *LocalSSH) PrepareForEval() error {
+	ctx := context.Background()
 	cmd := exec.CommandContext(ctx, "ssh", "root@jgc", "sshd", "-T")
 	stdout, err := cmd.Output()
 	if err != nil {

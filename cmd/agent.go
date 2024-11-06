@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"github.com/chris-cmsoft/concom/internal"
 	"github.com/chris-cmsoft/concom/plugin"
 	"github.com/chris-cmsoft/concom/plugins"
@@ -35,8 +34,10 @@ func RunAgent(cmd *cobra.Command, args []string) {
 
 	// First we want to fetch all the policy bundles
 	// Hardcoded until plugin system is incorporated
-	pluginList := []plugin.Plugin{
-		plugins.NewLocalSSH(),
+	pluginList := []plugin.EvaluatorPlugin{
+		{
+			Impl: plugins.NewLocalSSH(),
+		},
 	}
 
 	bundles, err := cmd.Flags().GetStringArray("policy-bundle")
@@ -63,24 +64,24 @@ func RunAgent(cmd *cobra.Command, args []string) {
 	}
 
 	for _, runnablePlugin := range pluginList {
-		err = runnablePlugin.PrepareForEval(ctx)
+		err = runnablePlugin.Impl.PrepareForEval()
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		for _, queryBundle := range queryBundles {
 
-			query, err := queryBundle.PrepareForEval(ctx)
+			_, err := queryBundle.PrepareForEval(ctx)
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			result, err := runnablePlugin.Evaluate(ctx, query)
-			if err != nil {
-				log.Fatal(err)
-			}
+			//result, err := runnablePlugin.Impl.Evaluate(ctx, query)
+			//if err != nil {
+			//	log.Fatal(err)
+			//}
 
-			fmt.Println(result)
+			//fmt.Println(result)
 		}
 	}
 }
