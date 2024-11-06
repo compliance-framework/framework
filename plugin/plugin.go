@@ -12,16 +12,10 @@ type Evaluator interface {
 
 type EvaluatorRPC struct{ client *rpc.Client }
 
-func (g *EvaluatorRPC) PrepareForEval() string {
+func (g *EvaluatorRPC) PrepareForEval() error {
 	var resp string
 	err := g.client.Call("Plugin.PrepareForEval", new(interface{}), &resp)
-	if err != nil {
-		// You usually want your interfaces to return errors. If they don't,
-		// there isn't much other choice here.
-		panic(err)
-	}
-
-	return resp
+	return err
 }
 
 type EvaluatorRPCServer struct {
