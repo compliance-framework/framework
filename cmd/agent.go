@@ -63,11 +63,12 @@ func RunAgent(cmd *cobra.Command, args []string) {
 	}
 
 	for _, runnablePlugin := range pluginList {
+		err = runnablePlugin.PrepareForEval(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		for _, queryBundle := range queryBundles {
-			err = runnablePlugin.PrepareForEval(ctx)
-			if err != nil {
-				log.Fatal(err)
-			}
 
 			query, err := queryBundle.PrepareForEval(ctx)
 			if err != nil {
