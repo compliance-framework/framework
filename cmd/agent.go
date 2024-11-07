@@ -98,13 +98,19 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		runnerInstance.PrepareForEval()
-
-		runnerInstance.Namespace()
-
-		runnerInstance.Configure(runner.Config{
-			"some_key": "asd",
+		err = runnerInstance.Configure(runner.RunnerConfig{
+			"host": "192.169.1.1",
+			"port": 80,
 		})
+		if err != nil {
+			return err
+		}
+
+		err = runnerInstance.PrepareForEval()
+		if err != nil {
+			return err
+		}
+
 		//
 		//for _, queryBundle := range runner.queryBundles {
 		//	fmt.Println("-------------")
