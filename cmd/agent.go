@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"github.com/chris-cmsoft/concom/runner"
 	"github.com/hashicorp/go-hclog"
 	goplugin "github.com/hashicorp/go-plugin"
@@ -94,36 +93,18 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 			Level:  hclog.Debug,
 		})
 
-		// We're a host! Start by launching the plugin process.
-		client := goplugin.NewClient(&goplugin.ClientConfig{
-			HandshakeConfig: handshakeConfig,
-			Plugins:         pluginMap,
-			Managed:         true,
-			Cmd:             exec.Command(path),
-			Logger:          logger,
-		})
-		defer client.Kill()
-
-		// Connect via RPC
-		rpcClient, err := client.Client()
+		runnerInstance, err := ar.GetRunnerInstance(logger, path)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
-		// Request the plugin
-		raw, err := rpcClient.Dispense("runner")
-		if err != nil {
-			log.Fatal(err)
-		}
+		runnerInstance.PrepareForEval()
 
-		// We should have a Greeter now! This feels like a normal interface
-		// implementation but is in fact over an RPC connection.
-		runnerInstance := raw.(runner.Runner)
-		fmt.Println(runnerInstance.PrepareForEval())
-		fmt.Println(runnerInstance.Namespace())
-		fmt.Println(runnerInstance.Configure(runner.Config{
+		runnerInstance.Namespace()
+
+		runnerInstance.Configure(runner.Config{
 			"some_key": "asd",
-		}))
+		})
 		//
 		//for _, queryBundle := range runner.queryBundles {
 		//	fmt.Println("-------------")
@@ -143,6 +124,34 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func (ar AgentRunner) GetRunnerInstance(logger hclog.Logger, path string) (runner.Runner, error) {
+	// We're a host! Start by launching the plugin process.
+	client := goplugin.NewClient(&goplugin.ClientConfig{
+		HandshakeConfig: handshakeConfig,
+		Plugins:         pluginMap,
+		Managed:         true,
+		Cmd:             exec.Command(path),
+		Logger:          logger,
+	})
+
+	// Connect via RPC
+	rpcClient, err := client.Client()
+	if err != nil {
+		return nil, err
+	}
+
+	// Request the plugin
+	raw, err := rpcClient.Dispense("runner")
+	if err != nil {
+		return nil, err
+	}
+
+	// We should have a Greeter now! This feels like a normal interface
+	// implementation but is in fact over an RPC connection.
+	runnerInstance := raw.(runner.Runner)
+	return runnerInstance, nil
 }
 
 func (ar AgentRunner) closePluginClients() {

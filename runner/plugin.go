@@ -5,7 +5,16 @@ import (
 	"net/rpc"
 )
 
-type Config map[string]string
+type SmallConfig struct {
+	smallKey string
+}
+
+type Config struct {
+	Somekey  string
+	Otherkey uint
+
+	SmallPart SmallConfig
+}
 
 type Runner interface {
 	Namespace() string
