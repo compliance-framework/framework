@@ -5,35 +5,7 @@ import (
 	"net/rpc"
 )
 
-type ConfigItem struct {
-	Key   string
-	Value interface{}
-}
-
-type RunnerConfig []ConfigItem
-
-func (rc RunnerConfig) findKey(key string) interface{} {
-	for _, item := range rc {
-		if item.Key == key {
-			return item.Value
-		}
-	}
-	return nil
-}
-
-func (rc RunnerConfig) GetString(key string) string {
-	if found := rc.findKey(key); found != nil {
-		return found.(string)
-	}
-	return ""
-}
-
-func (rc RunnerConfig) GetInt(key string) int {
-	if found := rc.findKey(key); found != nil {
-		return found.(int)
-	}
-	return 0
-}
+type RunnerConfig map[string]interface{}
 
 type Runner interface {
 	Configure(RunnerConfig) error
