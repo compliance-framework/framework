@@ -24,7 +24,7 @@ type RunnerRPCServer struct {
 	Impl Runner
 }
 
-func (s *RunnerRPCServer) Greet(args interface{}, resp *error) error {
+func (s *RunnerRPCServer) PrepareForEval(args interface{}, resp *error) error {
 	*resp = s.Impl.PrepareForEval()
 	return nil
 }
