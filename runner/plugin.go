@@ -6,6 +6,7 @@ import (
 )
 
 type Runner interface {
+	Namespace() string
 	PrepareForEval() error
 }
 
@@ -19,6 +20,16 @@ func (g *RunnerRPC) PrepareForEval() error {
 	return err
 }
 
+func (g *RunnerRPC) Namespace() string {
+	var resp string
+	err := g.client.Call("Plugin.Namespace", new(interface{}), &resp)
+	if err != nil {
+		// Not much to do here right now
+		panic(err)
+	}
+	return resp
+}
+
 type RunnerRPCServer struct {
 	// This is the real implementation
 	Impl Runner
@@ -26,6 +37,11 @@ type RunnerRPCServer struct {
 
 func (s *RunnerRPCServer) PrepareForEval(args interface{}, resp *error) error {
 	*resp = s.Impl.PrepareForEval()
+	return nil
+}
+
+func (s *RunnerRPCServer) Namespace(args interface{}, resp *string) error {
+	*resp = s.Impl.Namespace()
 	return nil
 }
 
