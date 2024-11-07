@@ -99,8 +99,14 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 		}
 
 		err = runnerInstance.Configure(runner.RunnerConfig{
-			"host": "192.169.1.1",
-			"port": 80,
+			runner.ConfigItem{
+				Key:   "host",
+				Value: "192.169.1.1",
+			},
+			runner.ConfigItem{
+				Key:   "port",
+				Value: 80,
+			},
 		})
 		if err != nil {
 			return err
