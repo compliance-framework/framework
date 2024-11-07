@@ -3,7 +3,7 @@ package cmd
 import (
 	"github.com/chris-cmsoft/concom/runner"
 	"github.com/hashicorp/go-hclog"
-	goplugin "github.com/hashicorp/go-plugin"
+	"github.com/hashicorp/go-plugin"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/spf13/cobra"
 	"log"
@@ -98,9 +98,14 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		err = runnerInstance.Configure(runner.RunnerConfig{
-			"host": "192.168.1.1",
-		})
+		//err = runnerInstance.Configure(runner.RunnerConfig{
+		//	"host": "192.168.1.1",
+		//})
+		//if err != nil {
+		//	return err
+		//}
+
+		err = runnerInstance.PrepareForEval()
 		if err != nil {
 			return err
 		}
@@ -133,12 +138,13 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 
 func (ar AgentRunner) GetRunnerInstance(logger hclog.Logger, path string) (runner.Runner, error) {
 	// We're a host! Start by launching the plugin process.
-	client := goplugin.NewClient(&goplugin.ClientConfig{
-		HandshakeConfig: handshakeConfig,
-		Plugins:         pluginMap,
-		Managed:         true,
-		Cmd:             exec.Command(path),
-		Logger:          logger,
+	client := plugin.NewClient(&plugin.ClientConfig{
+		HandshakeConfig:  runner.HandshakeConfig,
+		Plugins:          runner.PluginMap,
+		Managed:          true,
+		Cmd:              exec.Command(path),
+		Logger:           logger,
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 
 	// Connect via RPC
@@ -160,16 +166,5 @@ func (ar AgentRunner) GetRunnerInstance(logger hclog.Logger, path string) (runne
 }
 
 func (ar AgentRunner) closePluginClients() {
-	goplugin.CleanupClients()
-}
-
-var handshakeConfig = goplugin.HandshakeConfig{
-	ProtocolVersion:  1,
-	MagicCookieKey:   "BASIC_PLUGIN",
-	MagicCookieValue: "hello",
-}
-
-// pluginMap is the map of plugins we can dispense.
-var pluginMap = map[string]goplugin.Plugin{
-	"runner": &runner.RunnerPlugin{},
+	plugin.CleanupClients()
 }

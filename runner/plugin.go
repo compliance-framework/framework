@@ -1,57 +1,38 @@
 package runner
 
 import (
-	goplugin "github.com/hashicorp/go-plugin"
-	"net/rpc"
+	"context"
+	"github.com/chris-cmsoft/concom/runner/proto"
+	"github.com/hashicorp/go-plugin"
+	"google.golang.org/grpc"
 )
 
-type RunnerConfig map[string]interface{}
-
 type Runner interface {
-	Configure(RunnerConfig) error
 	PrepareForEval() error
 }
 
-type RunnerRPC struct {
-	client *rpc.Client
-}
+type RunnerGRPCPlugin struct {
+	plugin.Plugin
 
-func (g *RunnerRPC) Configure(config RunnerConfig) error {
-	var resp any
-	err := g.client.Call("Plugin.Configure", config, &resp)
-	return err
-}
-
-func (g *RunnerRPC) PrepareForEval() error {
-	var resp any
-	err := g.client.Call("Plugin.PrepareForEval", new(interface{}), &resp)
-	return err
-}
-
-type RunnerRPCServer struct {
-	// This is the real implementation
-	Impl Runner
-}
-
-func (s *RunnerRPCServer) Configure(config RunnerConfig, resp *error) error {
-	*resp = s.Impl.Configure(config)
-	return nil
-}
-
-func (s *RunnerRPCServer) PrepareForEval(args interface{}, resp *error) error {
-	*resp = s.Impl.PrepareForEval()
-	return nil
-}
-
-type RunnerPlugin struct {
 	// Impl Injection
 	Impl Runner
 }
 
-func (p *RunnerPlugin) Server(*goplugin.MuxBroker) (interface{}, error) {
-	return &RunnerRPCServer{Impl: p.Impl}, nil
+func (p *RunnerGRPCPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
+	proto.RegisterRunnerServer(s, &GRPCServer{Impl: p.Impl})
+	return nil
 }
 
-func (RunnerPlugin) Client(b *goplugin.MuxBroker, c *rpc.Client) (interface{}, error) {
-	return &RunnerRPC{client: c}, nil
+func (p *RunnerGRPCPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
+	return &GRPCClient{client: proto.NewRunnerClient(c)}, nil
+}
+
+var HandshakeConfig = plugin.HandshakeConfig{
+	ProtocolVersion:  1,
+	MagicCookieKey:   "RUNNER_PLUGIN",
+	MagicCookieValue: "AC755DCE-C118-481A-8EFA-18D8675D8122",
+}
+
+var PluginMap = map[string]plugin.Plugin{
+	"runner": &RunnerGRPCPlugin{},
 }

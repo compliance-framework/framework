@@ -1,0 +1,18 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
+syntax = "proto3";
+package proto;
+option go_package = "./proto";
+
+message PrepareForEvalRequest {}
+
+message PrepareForEvalResponse {
+  bytes value = 1;
+}
+
+message Empty {}
+
+service Runner {
+  rpc PrepareForEval(PrepareForEvalRequest) returns (PrepareForEvalResponse);
+}
