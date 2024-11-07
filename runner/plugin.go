@@ -5,8 +5,11 @@ import (
 	"net/rpc"
 )
 
+type Config map[string]string
+
 type Runner interface {
 	Namespace() string
+	Configure(Config) error
 	PrepareForEval() error
 }
 
@@ -30,6 +33,12 @@ func (g *RunnerRPC) Namespace() string {
 	return resp
 }
 
+func (g *RunnerRPC) Configure(config Config) error {
+	var resp any
+	err := g.client.Call("Plugin.Configure", config, &resp)
+	return err
+}
+
 type RunnerRPCServer struct {
 	// This is the real implementation
 	Impl Runner
@@ -42,6 +51,11 @@ func (s *RunnerRPCServer) PrepareForEval(args interface{}, resp *error) error {
 
 func (s *RunnerRPCServer) Namespace(args interface{}, resp *string) error {
 	*resp = s.Impl.Namespace()
+	return nil
+}
+
+func (s *RunnerRPCServer) Configure(config Config, resp *error) error {
+	*resp = s.Impl.Configure(config)
 	return nil
 }
 

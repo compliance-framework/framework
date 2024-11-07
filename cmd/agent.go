@@ -120,6 +120,7 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 		// implementation but is in fact over an RPC connection.
 		runnerInstance := raw.(runner.Runner)
 		fmt.Println(runnerInstance.PrepareForEval())
+		fmt.Println(runnerInstance.Namespace())
 		//
 		//for _, queryBundle := range runner.queryBundles {
 		//	fmt.Println("-------------")
