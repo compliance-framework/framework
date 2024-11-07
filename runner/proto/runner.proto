@@ -5,6 +5,14 @@ syntax = "proto3";
 package proto;
 option go_package = "./proto";
 
+message ConfigureRequest {
+  map<string, string> config = 1;
+}
+
+message ConfigureResponse {
+  bytes value = 1;
+}
+
 message PrepareForEvalRequest {}
 
 message PrepareForEvalResponse {
@@ -14,5 +22,6 @@ message PrepareForEvalResponse {
 message Empty {}
 
 service Runner {
+  rpc Configure(ConfigureRequest) returns (ConfigureResponse);
   rpc PrepareForEval(PrepareForEvalRequest) returns (PrepareForEvalResponse);
 }

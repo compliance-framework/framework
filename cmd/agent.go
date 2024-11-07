@@ -105,7 +105,10 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 		//	return err
 		//}
 
-		err = runnerInstance.PrepareForEval()
+		err = runnerInstance.Configure(map[string]string{
+			"host": "127.0.0.1",
+			"port": "80",
+		})
 		if err != nil {
 			return err
 		}

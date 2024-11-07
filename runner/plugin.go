@@ -8,6 +8,7 @@ import (
 )
 
 type Runner interface {
+	Configure(map[string]string) error
 	PrepareForEval() error
 }
 
