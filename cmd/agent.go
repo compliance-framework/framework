@@ -87,6 +87,8 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	defer runner.closePluginClients()
+
 	for _, path := range plugins {
 		evaluator, err := runner.getExecPluginClient(path)
 		if err != nil {
@@ -98,8 +100,6 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		fmt.Println("######################################")
-
 		for _, queryBundle := range runner.queryBundles {
 
 			query, err := queryBundle.PrepareForEval(ctx)
@@ -107,17 +107,15 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 				return err
 			}
 
-			fmt.Println(query)
-			//result, err := evaluator.Evaluate(query)
-			//if err != nil {
-			//	log.Fatal(err)
-			//}
-			//fmt.Println(result)
+			result, err := evaluator.Evaluate(query)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println(result)
 		}
 
 	}
 
-	runner.closePluginClients()
 	return nil
 }
 

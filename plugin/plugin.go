@@ -2,12 +2,13 @@ package plugin
 
 import (
 	goplugin "github.com/hashicorp/go-plugin"
+	"github.com/open-policy-agent/opa/rego"
 	"net/rpc"
 )
 
 type Evaluator interface {
 	PrepareForEval() error
-	//Evaluate(query rego.PreparedEvalQuery) (rego.ResultSet, error)
+	Evaluate(query rego.PreparedEvalQuery) (rego.ResultSet, error)
 }
 
 type EvaluatorPlugin struct {
