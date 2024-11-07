@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"github.com/chris-cmsoft/concom/internal"
-	cfplugin "github.com/chris-cmsoft/concom/plugin"
+	"github.com/chris-cmsoft/concom/runner"
 	"github.com/hashicorp/go-hclog"
 	goplugin "github.com/hashicorp/go-plugin"
 	"github.com/open-policy-agent/opa/rego"
@@ -24,7 +22,7 @@ with plugins to ensure continuous compliance.`,
 			logger := hclog.New(&hclog.LoggerOptions{
 				Name:   "agent",
 				Output: os.Stdout,
-				Level:  hclog.Debug,
+				Level:  hclog.Trace,
 			})
 			runner := AgentRunner{
 				logger: logger,
@@ -52,58 +50,76 @@ type AgentRunner struct {
 	queryBundles []*rego.Rego
 }
 
-func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
-	ctx := context.TODO()
+func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
+	//ctx := context.TODO()
 
-	bundles, err := cmd.Flags().GetStringArray("policy-bundle")
-	if err != nil {
-		internal.OnError(err, func(err error) {
-			log.Fatal("Unable to retrieve policy bundles", err)
-		})
-	}
-
-	// First we'll load the file based bundles as Rego queries.
-	// These will be evaluated one at a time, to avoid any root conflicts in packages as they
-	// all will fall under `package compliance_framework.XXX`
+	//bundles, err := cmd.Flags().GetStringArray("policy-bundle")
+	//if err != nil {
+	//	internal.OnError(err, func(err error) {
+	//		log.Fatal("Unable to retrieve policy bundles", err)
+	//	})
+	//}
 	//
-	// Why this is necessary:
-	// https://www.openpolicyagent.org/docs/latest/management-bundles/#multiple-sources-of-policy-and-data.
-	for _, inputBundle := range bundles {
-		r := rego.New(
-			rego.Query("data"),
-			rego.LoadBundle(inputBundle),
-		)
-
-		// Check that it will be able to prepare when we're ready to run
-		_, err = r.PrepareForEval(ctx)
-		if err != nil {
-			return err
-		}
-		runner.queryBundles = append(runner.queryBundles, r)
-	}
+	//// First we'll load the file based bundles as Rego queries.
+	//// These will be evaluated one at a time, to avoid any root conflicts in packages as they
+	//// all will fall under `package compliance_framework.XXX`
+	////
+	//// Why this is necessary:
+	//// https://www.openpolicyagent.org/docs/latest/management-bundles/#multiple-sources-of-policy-and-data.
+	//for _, inputBundle := range bundles {
+	//	r := rego.New(
+	//		rego.Query("data"),
+	//		rego.LoadBundle(inputBundle),
+	//	)
+	//
+	//	// Check that it will be able to prepare when we're ready to run
+	//	_, err = r.PrepareForEval(ctx)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	ar.queryBundles = append(ar.queryBundles, r)
+	//}
 
 	plugins, err := cmd.Flags().GetStringArray("plugin-path")
 	if err != nil {
 		return err
 	}
 
-	defer runner.closePluginClients()
+	defer ar.closePluginClients()
 
 	for _, path := range plugins {
-		fmt.Println("------------- plugin")
-		evaluator, err := runner.getExecPluginClient(path)
+		logger := hclog.New(&hclog.LoggerOptions{
+			Name:   "runner",
+			Output: os.Stdout,
+			Level:  hclog.Debug,
+		})
+
+		// We're a host! Start by launching the plugin process.
+		client := goplugin.NewClient(&goplugin.ClientConfig{
+			HandshakeConfig: handshakeConfig,
+			Plugins:         pluginMap,
+			Managed:         true,
+			Cmd:             exec.Command(path),
+			Logger:          logger,
+		})
+		defer client.Kill()
+
+		// Connect via RPC
+		rpcClient, err := client.Client()
 		if err != nil {
-			return err
+			log.Fatal(err)
 		}
-		fmt.Println("------------- namespace")
 
-		fmt.Println(evaluator.Namespace())
+		// Request the plugin
+		raw, err := rpcClient.Dispense("runner")
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		//err = evaluator.PrepareForEval()
-		//if err != nil {
-		//	return err
-		//}
-		//fmt.Println("------------- eval prep")
+		// We should have a Greeter now! This feels like a normal interface
+		// implementation but is in fact over an RPC connection.
+		runnerInstance := raw.(runner.Runner)
+		fmt.Println(runnerInstance.PrepareForEval())
 		//
 		//for _, queryBundle := range runner.queryBundles {
 		//	fmt.Println("-------------")
@@ -125,34 +141,17 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (runner AgentRunner) getExecPluginClient(command string) (*cfplugin.EvaluatorRPCClient, error) {
-	// We're a host! Start by launching the plugin process.
-	client := goplugin.NewClient(&goplugin.ClientConfig{
-		HandshakeConfig: cfplugin.HandshakeConfig,
-		Plugins: map[string]goplugin.Plugin{
-			"evaluator": &cfplugin.EvaluatorPlugin{},
-		},
-		Managed: true,
-		Cmd:     exec.Command(command),
-		Logger:  runner.logger,
-	})
-
-	// Connect via RPC
-	rpcClient, err := client.Client()
-	if err != nil {
-		return nil, err
-	}
-
-	// Request the plugin
-	raw, err := rpcClient.Dispense("plugin")
-	if err != nil {
-		return nil, err
-	}
-
-	pluginRpc := raw.(*cfplugin.EvaluatorRPCClient)
-	return pluginRpc, err
+func (ar AgentRunner) closePluginClients() {
+	goplugin.CleanupClients()
 }
 
-func (runner AgentRunner) closePluginClients() {
-	goplugin.CleanupClients()
+var handshakeConfig = goplugin.HandshakeConfig{
+	ProtocolVersion:  1,
+	MagicCookieKey:   "BASIC_PLUGIN",
+	MagicCookieValue: "hello",
+}
+
+// pluginMap is the map of plugins we can dispense.
+var pluginMap = map[string]goplugin.Plugin{
+	"runner": &runner.RunnerPlugin{},
 }
