@@ -25,6 +25,6 @@ func (EvaluatorPlugin) Client(b *goplugin.MuxBroker, c *rpc.Client) (interface{}
 
 var HandshakeConfig = goplugin.HandshakeConfig{
 	ProtocolVersion:  1,
-	MagicCookieKey:   "BASIC_PLUGIN",
+	MagicCookieKey:   "EVALUATOR_PLUGIN",
 	MagicCookieValue: "hello",
 }
