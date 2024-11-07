@@ -48,6 +48,8 @@ with plugins to ensure continuous compliance.`,
 
 type AgentRunner struct {
 	logger hclog.Logger
+
+	queryBundles []*rego.Rego
 }
 
 func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
@@ -60,9 +62,12 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 		})
 	}
 
-	// We have to load and evaluate the bundles with the plugins one by one, due to
+	// First we'll load the file based bundles as Rego queries.
+	// These will be evaluated one at a time, to avoid any root conflicts in packages as they
+	// all will fall under `package compliance_framework.XXX`
+	//
+	// Why this is necessary:
 	// https://www.openpolicyagent.org/docs/latest/management-bundles/#multiple-sources-of-policy-and-data.
-	var queryBundles []*rego.Rego
 	for _, inputBundle := range bundles {
 		r := rego.New(
 			rego.Query("data"),
@@ -74,7 +79,7 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		queryBundles = append(queryBundles, r)
+		runner.queryBundles = append(runner.queryBundles, r)
 	}
 
 	plugins, err := cmd.Flags().GetStringArray("plugin-path")
@@ -93,7 +98,9 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		for _, queryBundle := range queryBundles {
+		fmt.Println("######################################")
+
+		for _, queryBundle := range runner.queryBundles {
 
 			query, err := queryBundle.PrepareForEval(ctx)
 			if err != nil {
@@ -105,6 +112,7 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 			//if err != nil {
 			//	log.Fatal(err)
 			//}
+			//fmt.Println(result)
 		}
 
 	}
@@ -113,7 +121,7 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (runner AgentRunner) getExecPluginClient(command string) (*cfplugin.EvaluatorRPC, error) {
+func (runner AgentRunner) getExecPluginClient(command string) (*cfplugin.EvaluatorRPCClient, error) {
 	// We're a host! Start by launching the plugin process.
 	client := goplugin.NewClient(&goplugin.ClientConfig{
 		HandshakeConfig: handshakeConfig,
@@ -135,7 +143,7 @@ func (runner AgentRunner) getExecPluginClient(command string) (*cfplugin.Evaluat
 		return nil, err
 	}
 
-	pluginRpc := raw.(*cfplugin.EvaluatorRPC)
+	pluginRpc := raw.(*cfplugin.EvaluatorRPCClient)
 	return pluginRpc, err
 }
 
