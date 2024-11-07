@@ -121,6 +121,9 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 		runnerInstance := raw.(runner.Runner)
 		fmt.Println(runnerInstance.PrepareForEval())
 		fmt.Println(runnerInstance.Namespace())
+		fmt.Println(runnerInstance.Configure(runner.Config{
+			"some_key": "asd",
+		}))
 		//
 		//for _, queryBundle := range runner.queryBundles {
 		//	fmt.Println("-------------")
