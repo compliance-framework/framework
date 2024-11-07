@@ -90,28 +90,32 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 	defer runner.closePluginClients()
 
 	for _, path := range plugins {
+		fmt.Println("-------------")
 		evaluator, err := runner.getExecPluginClient(path)
 		if err != nil {
 			return err
 		}
+		fmt.Println("-------------")
 
 		err = evaluator.PrepareForEval()
 		if err != nil {
 			return err
 		}
+		fmt.Println("-------------")
 
 		for _, queryBundle := range runner.queryBundles {
-
+			fmt.Println("-------------")
 			query, err := queryBundle.PrepareForEval(ctx)
 			if err != nil {
 				return err
 			}
+			fmt.Println(query)
 
-			result, err := evaluator.Evaluate(query)
-			if err != nil {
-				log.Fatal(err)
-			}
-			fmt.Println(result)
+			//result, err := evaluator.Evaluate(query)
+			//if err != nil {
+			//	log.Fatal(err)
+			//}
+			//fmt.Println(result)
 		}
 
 	}
@@ -122,7 +126,7 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 func (runner AgentRunner) getExecPluginClient(command string) (*cfplugin.EvaluatorRPCClient, error) {
 	// We're a host! Start by launching the plugin process.
 	client := goplugin.NewClient(&goplugin.ClientConfig{
-		HandshakeConfig: handshakeConfig,
+		HandshakeConfig: cfplugin.HandshakeConfig,
 		Plugins:         pluginMap,
 		Managed:         true,
 		Cmd:             exec.Command(command),
@@ -147,16 +151,6 @@ func (runner AgentRunner) getExecPluginClient(command string) (*cfplugin.Evaluat
 
 func (runner AgentRunner) closePluginClients() {
 	goplugin.CleanupClients()
-}
-
-// handshakeConfigs are used to just do a basic handshake between
-// a plugin and host. If the handshake fails, a user friendly error is shown.
-// This prevents users from executing bad plugins or executing a plugin
-// directory. It is a UX feature, not a security feature.
-var handshakeConfig = goplugin.HandshakeConfig{
-	ProtocolVersion:  1,
-	MagicCookieKey:   "BASIC_PLUGIN",
-	MagicCookieValue: "hello",
 }
 
 // pluginMap is the map of plugins we can dispense.

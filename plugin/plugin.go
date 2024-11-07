@@ -2,13 +2,12 @@ package plugin
 
 import (
 	goplugin "github.com/hashicorp/go-plugin"
-	"github.com/open-policy-agent/opa/rego"
 	"net/rpc"
 )
 
 type Evaluator interface {
 	PrepareForEval() error
-	Evaluate(query rego.PreparedEvalQuery) (rego.ResultSet, error)
+	//Evaluate(query rego.PreparedEvalQuery) (rego.ResultSet, error)
 }
 
 type EvaluatorPlugin struct {
@@ -22,4 +21,10 @@ func (p *EvaluatorPlugin) Server(*goplugin.MuxBroker) (interface{}, error) {
 
 func (EvaluatorPlugin) Client(b *goplugin.MuxBroker, c *rpc.Client) (interface{}, error) {
 	return &EvaluatorRPCClient{client: c}, nil
+}
+
+var HandshakeConfig = goplugin.HandshakeConfig{
+	ProtocolVersion:  1,
+	MagicCookieKey:   "BASIC_PLUGIN",
+	MagicCookieValue: "hello",
 }
