@@ -90,18 +90,20 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 	defer runner.closePluginClients()
 
 	for _, path := range plugins {
-		fmt.Println("-------------")
+		fmt.Println("------------- plugin")
 		evaluator, err := runner.getExecPluginClient(path)
 		if err != nil {
 			return err
 		}
-		fmt.Println("-------------")
+		fmt.Println("------------- namespace")
+
+		fmt.Println(evaluator.PolicyNamespace())
 
 		err = evaluator.PrepareForEval()
 		if err != nil {
 			return err
 		}
-		fmt.Println("-------------")
+		fmt.Println("------------- eval prep")
 
 		for _, queryBundle := range runner.queryBundles {
 			fmt.Println("-------------")

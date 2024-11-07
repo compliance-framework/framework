@@ -6,6 +6,7 @@ import (
 )
 
 type Evaluator interface {
+	PolicyNamespace() string
 	PrepareForEval() error
 	//Evaluate(query rego.PreparedEvalQuery) (rego.ResultSet, error)
 }

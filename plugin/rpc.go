@@ -8,6 +8,12 @@ type EvaluatorRPCClient struct {
 	client *rpc.Client
 }
 
+func (g *EvaluatorRPCClient) PolicyNamespace() error {
+	var resp string
+	err := g.client.Call("Plugin.PolicyNamespace", new(interface{}), &resp)
+	return err
+}
+
 func (g *EvaluatorRPCClient) PrepareForEval() error {
 	var resp string
 	err := g.client.Call("Plugin.PrepareForEval", new(interface{}), &resp)
@@ -23,6 +29,10 @@ func (g *EvaluatorRPCClient) PrepareForEval() error {
 type EvaluatorRPCServer struct {
 	// This is the real implementation
 	Impl Evaluator
+}
+
+func (s *EvaluatorRPCServer) PolicyNamespace() string {
+	return s.Impl.PolicyNamespace()
 }
 
 func (s *EvaluatorRPCServer) PrepareForEval() error {
