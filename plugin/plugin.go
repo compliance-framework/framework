@@ -6,8 +6,8 @@ import (
 )
 
 type Evaluator interface {
-	PolicyNamespace() string
-	PrepareForEval() error
+	Namespace() (string, error)
+	//PrepareForEval() error
 	//Evaluate(query rego.PreparedEvalQuery) (rego.ResultSet, error)
 }
 
@@ -25,7 +25,8 @@ func (EvaluatorPlugin) Client(b *goplugin.MuxBroker, c *rpc.Client) (interface{}
 }
 
 var HandshakeConfig = goplugin.HandshakeConfig{
+	// This isn't required when using VersionedPlugins
 	ProtocolVersion:  1,
-	MagicCookieKey:   "EVALUATOR_PLUGIN",
+	MagicCookieKey:   "BASIC_PLUGIN",
 	MagicCookieValue: "hello",
 }

@@ -97,28 +97,28 @@ func (runner AgentRunner) Run(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Println("------------- namespace")
 
-		fmt.Println(evaluator.PolicyNamespace())
+		fmt.Println(evaluator.Namespace())
 
-		err = evaluator.PrepareForEval()
-		if err != nil {
-			return err
-		}
-		fmt.Println("------------- eval prep")
-
-		for _, queryBundle := range runner.queryBundles {
-			fmt.Println("-------------")
-			query, err := queryBundle.PrepareForEval(ctx)
-			if err != nil {
-				return err
-			}
-			fmt.Println(query)
-
-			//result, err := evaluator.Evaluate(query)
-			//if err != nil {
-			//	log.Fatal(err)
-			//}
-			//fmt.Println(result)
-		}
+		//err = evaluator.PrepareForEval()
+		//if err != nil {
+		//	return err
+		//}
+		//fmt.Println("------------- eval prep")
+		//
+		//for _, queryBundle := range runner.queryBundles {
+		//	fmt.Println("-------------")
+		//	query, err := queryBundle.PrepareForEval(ctx)
+		//	if err != nil {
+		//		return err
+		//	}
+		//	fmt.Println(query)
+		//
+		//	//result, err := evaluator.Evaluate(query)
+		//	//if err != nil {
+		//	//	log.Fatal(err)
+		//	//}
+		//	//fmt.Println(result)
+		//}
 
 	}
 
@@ -129,10 +129,12 @@ func (runner AgentRunner) getExecPluginClient(command string) (*cfplugin.Evaluat
 	// We're a host! Start by launching the plugin process.
 	client := goplugin.NewClient(&goplugin.ClientConfig{
 		HandshakeConfig: cfplugin.HandshakeConfig,
-		Plugins:         pluginMap,
-		Managed:         true,
-		Cmd:             exec.Command(command),
-		Logger:          runner.logger,
+		Plugins: map[string]goplugin.Plugin{
+			"evaluator": &cfplugin.EvaluatorPlugin{},
+		},
+		Managed: true,
+		Cmd:     exec.Command(command),
+		Logger:  runner.logger,
 	})
 
 	// Connect via RPC
@@ -142,7 +144,7 @@ func (runner AgentRunner) getExecPluginClient(command string) (*cfplugin.Evaluat
 	}
 
 	// Request the plugin
-	raw, err := rpcClient.Dispense("evaluator")
+	raw, err := rpcClient.Dispense("plugin")
 	if err != nil {
 		return nil, err
 	}
@@ -153,9 +155,4 @@ func (runner AgentRunner) getExecPluginClient(command string) (*cfplugin.Evaluat
 
 func (runner AgentRunner) closePluginClients() {
 	goplugin.CleanupClients()
-}
-
-// pluginMap is the map of plugins we can dispense.
-var pluginMap = map[string]goplugin.Plugin{
-	"evaluator": &cfplugin.EvaluatorPlugin{},
 }
