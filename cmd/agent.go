@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/chris-cmsoft/concom/runner"
+	"github.com/chris-cmsoft/concom/runner/proto"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/open-policy-agent/opa/rego"
@@ -96,24 +98,29 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		err = runnerInstance.Configure(map[string]string{
-			"host": "127.0.0.1",
-			"port": "22",
+		_, err = runnerInstance.Configure(&proto.ConfigureRequest{
+			Config: map[string]string{
+				"host": "127.0.0.1",
+				"port": "22",
+			},
 		})
 		if err != nil {
 			return err
 		}
 
-		err = runnerInstance.PrepareForEval()
+		_, err = runnerInstance.PrepareForEval(&proto.PrepareForEvalRequest{})
 		if err != nil {
 			return err
 		}
 
 		for _, inputBundle := range bundles {
-			err = runnerInstance.Eval(inputBundle)
+			res, err := runnerInstance.Eval(&proto.EvalRequest{
+				BundlePath: inputBundle,
+			})
 			if err != nil {
 				return err
 			}
+			fmt.Println(res.Observations)
 		}
 	}
 

@@ -8,19 +8,17 @@ import (
 // GRPCClient is an implementation of KV that talks over RPC.
 type GRPCClient struct{ client proto.RunnerClient }
 
-func (m *GRPCClient) Configure(config map[string]string) error {
-	_, err := m.client.Configure(context.Background(), &proto.ConfigureRequest{Config: config})
-	return err
+func (m *GRPCClient) Configure(req *proto.ConfigureRequest) (*proto.ConfigureResponse, error) {
+	return m.client.Configure(context.Background(), req)
 }
 
-func (m *GRPCClient) PrepareForEval() error {
-	_, err := m.client.PrepareForEval(context.Background(), &proto.PrepareForEvalRequest{})
-	return err
+func (m *GRPCClient) PrepareForEval(req *proto.PrepareForEvalRequest) (*proto.PrepareForEvalResponse, error) {
+	return m.client.PrepareForEval(context.Background(), req)
 }
 
-func (m *GRPCClient) Eval(bundlePath string) error {
-	_, err := m.client.Eval(context.Background(), &proto.EvalRequest{BundlePath: bundlePath})
-	return err
+func (m *GRPCClient) Eval(req *proto.EvalRequest) (*proto.EvalResponse, error) {
+	resp, err := m.client.Eval(context.Background(), req)
+	return resp, err
 }
 
 type GRPCServer struct {
@@ -28,13 +26,13 @@ type GRPCServer struct {
 }
 
 func (m *GRPCServer) Configure(ctx context.Context, req *proto.ConfigureRequest) (*proto.ConfigureResponse, error) {
-	return &proto.ConfigureResponse{}, m.Impl.Configure(req.Config)
+	return m.Impl.Configure(req)
 }
 
 func (m *GRPCServer) PrepareForEval(ctx context.Context, req *proto.PrepareForEvalRequest) (*proto.PrepareForEvalResponse, error) {
-	return &proto.PrepareForEvalResponse{}, m.Impl.PrepareForEval()
+	return m.Impl.PrepareForEval(req)
 }
 
 func (m *GRPCServer) Eval(ctx context.Context, req *proto.EvalRequest) (*proto.EvalResponse, error) {
-	return &proto.EvalResponse{}, m.Impl.Eval(req.BundlePath)
+	return m.Impl.Eval(req)
 }
