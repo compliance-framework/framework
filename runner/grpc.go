@@ -18,6 +18,11 @@ func (m *GRPCClient) PrepareForEval() error {
 	return err
 }
 
+func (m *GRPCClient) Eval(bundlePath string) error {
+	_, err := m.client.Eval(context.Background(), &proto.EvalRequest{BundlePath: bundlePath})
+	return err
+}
+
 type GRPCServer struct {
 	Impl Runner
 }
@@ -28,4 +33,8 @@ func (m *GRPCServer) Configure(ctx context.Context, req *proto.ConfigureRequest)
 
 func (m *GRPCServer) PrepareForEval(ctx context.Context, req *proto.PrepareForEvalRequest) (*proto.PrepareForEvalResponse, error) {
 	return &proto.PrepareForEvalResponse{}, m.Impl.PrepareForEval()
+}
+
+func (m *GRPCServer) Eval(ctx context.Context, req *proto.EvalRequest) (*proto.EvalResponse, error) {
+	return &proto.EvalResponse{}, m.Impl.Eval(req.BundlePath)
 }

@@ -8,8 +8,9 @@ import (
 )
 
 type Runner interface {
-	Configure(map[string]string) error
+	Configure(config map[string]string) error
 	PrepareForEval() error
+	Eval(bundlePath string) error
 }
 
 type RunnerGRPCPlugin struct {

@@ -19,9 +19,18 @@ message PrepareForEvalResponse {
   bytes value = 1;
 }
 
+message EvalRequest {
+  string bundlePath = 1;
+}
+
+message EvalResponse {
+  bytes value = 1;
+}
+
 message Empty {}
 
 service Runner {
   rpc Configure(ConfigureRequest) returns (ConfigureResponse);
   rpc PrepareForEval(PrepareForEvalRequest) returns (PrepareForEvalResponse);
+  rpc Eval(EvalRequest) returns (EvalResponse);
 }

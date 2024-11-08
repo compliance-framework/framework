@@ -52,12 +52,10 @@ type AgentRunner struct {
 func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 	//ctx := context.TODO()
 
-	//bundles, err := cmd.Flags().GetStringArray("policy-bundle")
-	//if err != nil {
-	//	internal.OnError(err, func(err error) {
-	//		log.Fatal("Unable to retrieve policy bundles", err)
-	//	})
-	//}
+	bundles, err := cmd.Flags().GetStringArray("policy-bundle")
+	if err != nil {
+		return err
+	}
 	//
 	//// First we'll load the file based bundles as Rego queries.
 	//// These will be evaluated one at a time, to avoid any root conflicts in packages as they
@@ -98,16 +96,9 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		//err = runnerInstance.Configure(runner.RunnerConfig{
-		//	"host": "192.168.1.1",
-		//})
-		//if err != nil {
-		//	return err
-		//}
-
 		err = runnerInstance.Configure(map[string]string{
 			"host": "127.0.0.1",
-			"port": "80",
+			"port": "22",
 		})
 		if err != nil {
 			return err
@@ -118,22 +109,12 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		//
-		//for _, queryBundle := range runner.queryBundles {
-		//	fmt.Println("-------------")
-		//	query, err := queryBundle.PrepareForEval(ctx)
-		//	if err != nil {
-		//		return err
-		//	}
-		//	fmt.Println(query)
-		//
-		//	//result, err := evaluator.Evaluate(query)
-		//	//if err != nil {
-		//	//	log.Fatal(err)
-		//	//}
-		//	//fmt.Println(result)
-		//}
-
+		for _, inputBundle := range bundles {
+			err = runnerInstance.Eval(inputBundle)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil

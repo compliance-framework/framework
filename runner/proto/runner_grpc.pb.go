@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	Runner_Configure_FullMethodName      = "/proto.Runner/Configure"
 	Runner_PrepareForEval_FullMethodName = "/proto.Runner/PrepareForEval"
+	Runner_Eval_FullMethodName           = "/proto.Runner/Eval"
 )
 
 // RunnerClient is the client API for Runner service.
@@ -32,6 +33,7 @@ const (
 type RunnerClient interface {
 	Configure(ctx context.Context, in *ConfigureRequest, opts ...grpc.CallOption) (*ConfigureResponse, error)
 	PrepareForEval(ctx context.Context, in *PrepareForEvalRequest, opts ...grpc.CallOption) (*PrepareForEvalResponse, error)
+	Eval(ctx context.Context, in *EvalRequest, opts ...grpc.CallOption) (*EvalResponse, error)
 }
 
 type runnerClient struct {
@@ -60,12 +62,22 @@ func (c *runnerClient) PrepareForEval(ctx context.Context, in *PrepareForEvalReq
 	return out, nil
 }
 
+func (c *runnerClient) Eval(ctx context.Context, in *EvalRequest, opts ...grpc.CallOption) (*EvalResponse, error) {
+	out := new(EvalResponse)
+	err := c.cc.Invoke(ctx, Runner_Eval_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RunnerServer is the server API for Runner service.
 // All implementations should embed UnimplementedRunnerServer
 // for forward compatibility
 type RunnerServer interface {
 	Configure(context.Context, *ConfigureRequest) (*ConfigureResponse, error)
 	PrepareForEval(context.Context, *PrepareForEvalRequest) (*PrepareForEvalResponse, error)
+	Eval(context.Context, *EvalRequest) (*EvalResponse, error)
 }
 
 // UnimplementedRunnerServer should be embedded to have forward compatible implementations.
@@ -77,6 +89,9 @@ func (UnimplementedRunnerServer) Configure(context.Context, *ConfigureRequest) (
 }
 func (UnimplementedRunnerServer) PrepareForEval(context.Context, *PrepareForEvalRequest) (*PrepareForEvalResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PrepareForEval not implemented")
+}
+func (UnimplementedRunnerServer) Eval(context.Context, *EvalRequest) (*EvalResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Eval not implemented")
 }
 
 // UnsafeRunnerServer may be embedded to opt out of forward compatibility for this service.
@@ -126,6 +141,24 @@ func _Runner_PrepareForEval_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Runner_Eval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EvalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RunnerServer).Eval(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Runner_Eval_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RunnerServer).Eval(ctx, req.(*EvalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Runner_ServiceDesc is the grpc.ServiceDesc for Runner service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -140,6 +173,10 @@ var Runner_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PrepareForEval",
 			Handler:    _Runner_PrepareForEval_Handler,
+		},
+		{
+			MethodName: "Eval",
+			Handler:    _Runner_Eval_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
