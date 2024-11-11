@@ -1,51 +1,33 @@
-# Compliance Framework Policy Processor
+# Compliance Framework Agent
+
+The Compliance Framework Agent, is the central component responsible for running plugins on schedule, passing them 
+policies, and keeping plugins and policies up to date based on upstream plugins and policies.
+
+## Plugins
+
+Plugins are the primary method of gathering data for policy checks. Plugins will execute some code to fetch the 
+data necessary for specific compliance checks, and then run these against policies to ensure compliance with a
+businesses' policies. 
+
+As an example, there is a plugin called `local-ssh`. This plugin will retrieve the SSH configuration on a machine,
+convert it to a usable json structure, and then run company policies against the SSH configuration to ensure a host 
+machine complies with all regulatory and security policies.
+
+The Agent is responsible for starting and calling these plugins, when it is necessary, usually on a set schedule.
+
+Plugins are entirely flexible in that they can be used to test any type of configuration or data, as long as they report 
+findings and observations about what they found. 
+
+## Policies
+
+Polices, although not strictly required, are written in Rego, and passed to each plugin so it can assert whether 
+the data it has collected, conforms with organisational policies. 
+
+For each violation of the policies, the plugin will report findings and observations to the agent, which in turn will
+report these to the central configuration api. 
 
 ## Usage
 
 ```shell
-# Verifying policies for correct metadata
-go run main.go verify -p policies/
-```
-
-## Creating policies in the compliance framework
-
-You can include policies in the policy checks for Compliance Framework, 
-by specifying `cf_enabled: true` in the policy file metadata
-```rego
-# METADATA
-# cf_enabled: true
-package ssh.deny_password_auth
-
-import future.keywords.in
-
-violation[{"msg": msg}] {
-	"yes" in input.passwordauthentication
-	msg := "Host SSH should not allow the use of password authentication. Set `passwordauthentication` to `no`"
-}
-```
-
-## Specifying Metadata
-
-Within policies, metadata can be used to specify data for the compliance
-framework when running policies against data
-```rego
-# METADATA
-# cf_enabled: true
-# title: Ensure S3 buckets are encrypted
-# description: S3 buckets should be encrypted at all times to prevent unauthorised reading of unencrypted file systems
-# controls:
-# - AC-1
-package encrypted_s3
-
-import data.util_functions
-```
-
-### Schema
-
-```yaml
-cf_enabled: true # Required to be included in Continuous Compliance
-title: Ensure S3 buckets are encrypted
-description: S3 buckets should be encrypted at all times to prevent unauthorised reading of unencrypted file systems
-controls:
-- AC-1
+go run main.go agent --policy PATH_TO_OPA_DIR_OR_BUNDLE --plugin PATH_TO_PLUGIN_EXECUTABLE
 ```

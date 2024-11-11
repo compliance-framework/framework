@@ -35,14 +35,14 @@ with plugins to ensure continuous compliance.`,
 		},
 	}
 
-	agentCmd.Flags().StringArray("policies", []string{}, "Directory or Bundle archive where policies are stored")
-	err := agentCmd.MarkFlagRequired("policies")
+	agentCmd.Flags().StringArray("policy", []string{}, "Directory or Bundle archive where policies are stored")
+	err := agentCmd.MarkFlagRequired("policy")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	agentCmd.Flags().StringArray("plugin-path", []string{}, "Plugin executable")
-	agentCmd.MarkFlagsOneRequired("plugin-path")
+	agentCmd.Flags().StringArray("plugin", []string{}, "Plugin executable or directory")
+	agentCmd.MarkFlagsOneRequired("plugin")
 
 	// --once run the agent once and not on a schedule. Right now this is default.
 	// Actually run this as an agent on a schedule.
@@ -59,12 +59,12 @@ type AgentRunner struct {
 func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 	//ctx := context.TODO()
 
-	policyBundles, err := cmd.Flags().GetStringArray("policies")
+	policyBundles, err := cmd.Flags().GetStringArray("policy")
 	if err != nil {
 		return err
 	}
 
-	plugins, err := cmd.Flags().GetStringArray("plugin-path")
+	plugins, err := cmd.Flags().GetStringArray("plugin")
 	if err != nil {
 		return err
 	}
