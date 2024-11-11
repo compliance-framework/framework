@@ -8,6 +8,13 @@ import (
 
 type Violation map[string]interface{}
 
+func (v Violation) GetString(key string, defaultString string) string {
+	if _, value := v[key]; value {
+		return v[key].(string)
+	}
+	return defaultString
+}
+
 type Package string
 
 func (p Package) PurePackage() string {

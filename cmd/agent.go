@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/chris-cmsoft/concom/runner"
 	"github.com/chris-cmsoft/concom/runner/proto"
 	"github.com/hashicorp/go-hclog"
@@ -104,6 +105,11 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
+
+			fmt.Println("Output from runner:")
+			fmt.Println("Findings:", res.Findings)
+			fmt.Println("Observations:", res.Observations)
+			fmt.Println("Log Entries:", res.Logs)
 
 			// Here we'll send the data back to NATS
 		}

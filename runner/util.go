@@ -24,6 +24,10 @@ func (eval *CallableEvalResponse) AddFinding(finding *proto.Finding) {
 	eval.Findings = append(eval.Findings, finding)
 }
 
+func (eval *CallableEvalResponse) AddLogEntry(logEntry *proto.LogEntry) {
+	eval.Logs = append(eval.Logs, logEntry)
+}
+
 func (eval *CallableEvalResponse) Result() *proto.EvalResponse {
 	return eval.EvalResponse
 }
