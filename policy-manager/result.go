@@ -1,4 +1,4 @@
-package bundle
+package policy_manager
 
 import (
 	"fmt"

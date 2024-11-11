@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"github.com/chris-cmsoft/concom/runner"
 	"github.com/chris-cmsoft/concom/runner/proto"
 	"github.com/hashicorp/go-hclog"
@@ -35,12 +34,17 @@ with plugins to ensure continuous compliance.`,
 		},
 	}
 
-	agentCmd.Flags().StringArray("policy-path", []string{}, "Directory where policies are stored")
-	agentCmd.Flags().StringArray("policy-bundle", []string{}, "Directory where policies are stored")
-	agentCmd.MarkFlagsOneRequired("policy-path", "policy-bundle")
+	agentCmd.Flags().StringArray("policies", []string{}, "Directory or Bundle archive where policies are stored")
+	err := agentCmd.MarkFlagRequired("policies")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	agentCmd.Flags().StringArray("plugin-path", []string{}, "Plugin executable")
 	agentCmd.MarkFlagsOneRequired("plugin-path")
+
+	// --once run the agent once and not on a schedule. Right now this is default.
+	// Actually run this as an agent on a schedule.
 
 	return agentCmd
 }
@@ -54,30 +58,10 @@ type AgentRunner struct {
 func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 	//ctx := context.TODO()
 
-	bundles, err := cmd.Flags().GetStringArray("policy-bundle")
+	policyBundles, err := cmd.Flags().GetStringArray("policies")
 	if err != nil {
 		return err
 	}
-	//
-	//// First we'll load the file based bundles as Rego queries.
-	//// These will be evaluated one at a time, to avoid any root conflicts in packages as they
-	//// all will fall under `package compliance_framework.XXX`
-	////
-	//// Why this is necessary:
-	//// https://www.openpolicyagent.org/docs/latest/management-bundles/#multiple-sources-of-policy-and-data.
-	//for _, inputBundle := range bundles {
-	//	r := rego.New(
-	//		rego.Query("data"),
-	//		rego.LoadBundle(inputBundle),
-	//	)
-	//
-	//	// Check that it will be able to prepare when we're ready to run
-	//	_, err = r.PrepareForEval(ctx)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	ar.queryBundles = append(ar.queryBundles, r)
-	//}
 
 	plugins, err := cmd.Flags().GetStringArray("plugin-path")
 	if err != nil {
@@ -113,14 +97,15 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		for _, inputBundle := range bundles {
+		for _, inputBundle := range policyBundles {
 			res, err := runnerInstance.Eval(&proto.EvalRequest{
 				BundlePath: inputBundle,
 			})
 			if err != nil {
 				return err
 			}
-			fmt.Println(res.Observations)
+
+			// Here we'll send the data back to NATS
 		}
 	}
 

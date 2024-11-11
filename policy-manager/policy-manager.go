@@ -1,44 +1,44 @@
-package bundle
+package policy_manager
 
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/go-hclog"
 	"github.com/open-policy-agent/opa/rego"
 	"slices"
 	"strings"
 )
 
-type Bundle struct {
-	path  string
-	query rego.PreparedEvalQuery
+type PolicyManager struct {
+	logger        hclog.Logger
+	loaderOptions []func(r *rego.Rego)
 }
 
-func New(ctx context.Context, policyPath string) *Bundle {
-	return &Bundle{path: policyPath}
+func New(ctx context.Context, logger hclog.Logger, bundlePath string) *PolicyManager {
+	return &PolicyManager{
+		logger: logger,
+		loaderOptions: []func(r *rego.Rego){
+			rego.LoadBundle(bundlePath),
+		},
+	}
 }
 
-func (b *Bundle) BuildQuery(ctx context.Context, pluginNamespace string) (*Bundle, error) {
-	r := rego.New(
+func (pm *PolicyManager) Execute(ctx context.Context, pluginNamespace string, input map[string]interface{}) ([]Result, error) {
+	var output []Result
+
+	regoArgs := []func(r *rego.Rego){
 		rego.Query("data.compliance_framework"),
-		rego.LoadBundle(b.path),
 		rego.Package(fmt.Sprintf("compliance_framework.%s", pluginNamespace)),
-	)
+	}
+	regoArgs = append(regoArgs, pm.loaderOptions...)
+	r := rego.New(regoArgs...)
 
 	query, err := r.PrepareForEval(ctx)
 	if err != nil {
-		return b, err
+		return nil, err
 	}
 
-	b.query = query
-
-	// Check that it will be able to prepare when we're ready to run
-	return b, nil
-}
-
-func (b *Bundle) Execute(ctx context.Context, input map[string]interface{}) ([]Result, error) {
-	var output []Result
-
-	for _, module := range b.query.Modules() {
+	for _, module := range query.Modules() {
 		// Exclude any test files for this compilation
 		if strings.HasSuffix(module.Package.Location.File, "_test.rego") {
 			continue
@@ -54,14 +54,16 @@ func (b *Bundle) Execute(ctx context.Context, input map[string]interface{}) ([]R
 			Violations:          nil,
 		}
 
-		sub := rego.New(
+		regoArgs := []func(r *rego.Rego){
 			rego.Query(module.Package.Path.String()),
-			rego.LoadBundle(b.path),
 			rego.Package(module.Package.Path.String()),
 			rego.Input(input),
-		)
+		}
+		regoArgs = append(regoArgs, pm.loaderOptions...)
 
-		evaluation, err := sub.Eval(ctx)
+		subQuery := rego.New(regoArgs...)
+
+		evaluation, err := subQuery.Eval(ctx)
 		if err != nil {
 			return nil, err
 		}
