@@ -25,10 +25,10 @@ with plugins to ensure continuous compliance.`,
 				Output: os.Stdout,
 				Level:  hclog.Trace,
 			})
-			runner := AgentRunner{
+			pluginRunner := AgentRunner{
 				logger: logger,
 			}
-			err := runner.Run(cmd, args)
+			err := pluginRunner.Run(cmd, args)
 			if err != nil {
 				log.Fatal(err)
 			}
