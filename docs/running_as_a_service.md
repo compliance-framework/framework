@@ -76,7 +76,8 @@ sudo tee /etc/systemd/system/concom-agent.service <<EOF
 [Unit]
 Description=Continuous Compliance (ConCom) Agent
 Documentation=https://github.com/continuouscompliance/agent
-After=network.target local-fs.target
+Wants=network-online.target
+After=network.target network-online.target local-fs.target
 
 [Install]
 WantedBy=multi-user.target
