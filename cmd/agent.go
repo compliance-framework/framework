@@ -5,10 +5,13 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/chris-cmsoft/concom/runner"
 	"github.com/chris-cmsoft/concom/runner/proto"
+	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/open-policy-agent/opa/rego"
@@ -76,17 +79,7 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if daemon == true {
-		for {
-			err := ar.runInstance(plugins, policyBundles)
-
-			if err != nil {
-				ar.logger.Error("error running instance", "error", err)
-				// No return for now, we'll do a retry afterwards.
-				// TODO: Should we have a retry limit maybe?
-			}
-
-			time.Sleep(time.Second * 60)
-		}
+		ar.runDaemon(plugins, policyBundles)
 	} else {
 		err := ar.runInstance(plugins, policyBundles)
 
@@ -99,6 +92,46 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// Should never return, either handles any error or panics.
+func (ar AgentRunner) runDaemon(
+	plugins []string,
+	policyBundles []string,
+) {
+	sigs := make(chan os.Signal, 1)
+
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigs
+		fmt.Println()
+		ar.logger.Info("received signal to terminate plugins and exit", "signal", sig)
+		ar.closePluginClients()
+		os.Exit(0)
+	}()
+
+	go daemon.SdNotify(false, "READY=1")
+
+	for {
+		err := ar.runInstance(plugins, policyBundles)
+
+		if err != nil {
+			ar.logger.Error("error running instance", "error", err)
+			// No return for now, we keep retrying.
+			// TODO: Should we have a retry limit maybe?
+		}
+
+		time.Sleep(time.Second * 60)
+	}
+}
+
+// Run the agent as an instance, this is a single run of the agent that will check the
+// policies against the plugins.
+//
+// Arguments:
+// - plugins: list of plugin paths
+// - policyBundles: list of policy bundle paths
+// Returns:
+// - error: any error that occurred during the run
 func (ar AgentRunner) runInstance(
 	plugins []string,
 	policyBundles []string,
