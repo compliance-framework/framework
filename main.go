@@ -8,7 +8,6 @@ import (
 )
 
 func main() {
-
 	var rootCmd = &cobra.Command{
 		Use:   "cf",
 		Short: "cf manages policies for the compliance framework",
