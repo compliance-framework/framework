@@ -95,6 +95,9 @@ with plugins to ensure continuous compliance.`,
 	agentCmd.Flags().StringP("config", "c", "", "Location of config file")
 	agentCmd.MarkFlagRequired("config")
 
+	agentCmd.Flags().StringP("config", "c", "", "Location of config file")
+	agentCmd.MarkFlagRequired("config")
+
 	return agentCmd
 }
 

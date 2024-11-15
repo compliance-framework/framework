@@ -3,6 +3,7 @@ package internal
 import (
 	"archive/tar"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/hashicorp/go-hclog"
 	"io"
 	"os"
 	"path/filepath"
@@ -88,5 +89,16 @@ func Untar(destination string, tarReader io.Reader) error {
 			// to wait until all operations have completed.
 			f.Close()
 		}
+	}
+}
+
+func GetHclLogLevelFromVerbose(verbose int) hclog.Level {
+	switch verbose {
+	case 1:
+		return hclog.Debug
+	case 2:
+		return hclog.Trace
+	default:
+		return hclog.Info
 	}
 }
