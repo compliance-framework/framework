@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/chris-cmsoft/concom/internal"
@@ -11,7 +12,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"github.com/open-policy-agent/opa/rego"
+	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
@@ -52,6 +53,9 @@ with plugins to ensure continuous compliance.`,
 	agentCmd.Flags().StringArray("plugin", []string{}, "Plugin executable or directory")
 	agentCmd.MarkFlagsOneRequired("plugin")
 
+	agentCmd.Flags().String("nats-uri", nats.DefaultURL, "NATS Server URL")
+	agentCmd.MarkFlagRequired("nats-uri")
+
 	agentCmd.Flags().BoolP("daemon", "d", false, "Specify to run as a long running daemon")
 
 	return agentCmd
@@ -65,6 +69,18 @@ type AgentRunner struct {
 
 func (ar *AgentRunner) Run(cmd *cobra.Command, args []string) error {
 	//ctx := context.TODO()
+
+	natsUri, err := cmd.Flags().GetString("nats-uri")
+	if err != nil {
+		return err
+	}
+
+	nc, err := nats.Connect(natsUri)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer nc.Close()
 
 	policyBundles, err := cmd.Flags().GetStringArray("policy")
 	if err != nil {
@@ -81,22 +97,20 @@ func (ar *AgentRunner) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if daemon == true {
-		ar.runDaemon(plugins, policyBundles)
-	} else {
-		err := ar.runInstance(plugins, policyBundles)
-
+	if !daemon {
+		err := ar.runInstance(plugins, policyBundles, nc)
 		if err != nil {
 			ar.logger.Error("error running instance", "error", err)
 			return err
 		}
 	}
+	ar.runDaemon(plugins, policyBundles, nc)
 
 	return nil
 }
 
 // Should never return, either handles any error or panics.
-func (ar *AgentRunner) runDaemon(plugins []string, policyBundles []string) {
+func (ar *AgentRunner) runDaemon(plugins []string, policyBundles []string, nc *nats.Conn) {
 	sigs := make(chan os.Signal, 1)
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -112,7 +126,7 @@ func (ar *AgentRunner) runDaemon(plugins []string, policyBundles []string) {
 	go daemon.SdNotify(false, "READY=1")
 
 	for {
-		err := ar.runInstance(plugins, policyBundles)
+		err := ar.runInstance(plugins, policyBundles, nc)
 
 		if err != nil {
 			ar.logger.Error("error running instance", "error", err)
@@ -132,7 +146,7 @@ func (ar *AgentRunner) runDaemon(plugins []string, policyBundles []string) {
 // - policyBundles: list of policy bundle paths
 // Returns:
 // - error: any error that occurred during the run
-func (ar *AgentRunner) runInstance(plugins []string, policyBundles []string) error {
+func (ar *AgentRunner) runInstance(plugins []string, policyBundles []string, nc *nats.Conn) error {
 	defer ar.closePluginClients()
 
 	for _, source := range plugins {
@@ -181,7 +195,23 @@ func (ar *AgentRunner) runInstance(plugins []string, policyBundles []string) err
 			fmt.Println("Observations:", res.Observations)
 			fmt.Println("Log Entries:", res.Logs)
 
-			// Here we'll send the data back to NATS
+			// Publish findings to nats subjects
+			findings, err := json.Marshal(res.Findings)
+			if err != nil {
+				return err
+			}
+			if err := nc.Publish("Findings", findings); err != nil {
+				return err
+			}
+
+			// Publish observations to nats subjects
+			observations, err := json.Marshal(res.Observations)
+			if err != nil {
+				return err
+			}
+			if err := nc.Publish("Observations", observations); err != nil {
+				return err
+			}
 		}
 	}
 
