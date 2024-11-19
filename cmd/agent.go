@@ -2,13 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"os/exec"
-	"os/signal"
-	"syscall"
-	"time"
-
+	"github.com/chris-cmsoft/concom/internal/downloader"
 	"github.com/chris-cmsoft/concom/runner"
 	"github.com/chris-cmsoft/concom/runner/proto"
 	"github.com/coreos/go-systemd/v22/daemon"
@@ -16,7 +10,16 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/spf13/cobra"
+	"log"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path"
+	"syscall"
+	"time"
 )
+
+const AgentPluginDir = ".compliance-framework/plugins"
 
 func AgentCmd() *cobra.Command {
 	var agentCmd = &cobra.Command{
@@ -60,7 +63,7 @@ type AgentRunner struct {
 	queryBundles []*rego.Rego
 }
 
-func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
+func (ar *AgentRunner) Run(cmd *cobra.Command, args []string) error {
 	//ctx := context.TODO()
 
 	policyBundles, err := cmd.Flags().GetStringArray("policy")
@@ -93,10 +96,7 @@ func (ar AgentRunner) Run(cmd *cobra.Command, args []string) error {
 }
 
 // Should never return, either handles any error or panics.
-func (ar AgentRunner) runDaemon(
-	plugins []string,
-	policyBundles []string,
-) {
+func (ar *AgentRunner) runDaemon(plugins []string, policyBundles []string) {
 	sigs := make(chan os.Signal, 1)
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -132,20 +132,23 @@ func (ar AgentRunner) runDaemon(
 // - policyBundles: list of policy bundle paths
 // Returns:
 // - error: any error that occurred during the run
-func (ar AgentRunner) runInstance(
-	plugins []string,
-	policyBundles []string,
-) error {
+func (ar *AgentRunner) runInstance(plugins []string, policyBundles []string) error {
 	defer ar.closePluginClients()
 
-	for _, path := range plugins {
+	for _, source := range plugins {
 		logger := hclog.New(&hclog.LoggerOptions{
 			Name:   "runner",
 			Output: os.Stdout,
 			Level:  hclog.Debug,
 		})
 
-		runnerInstance, err := ar.getRunnerInstance(logger, path)
+		pluginPath, err := ar.DownloadPlugin(source)
+		if err != nil {
+			return err
+		}
+
+		runnerInstance, err := ar.getRunnerInstance(logger, pluginPath)
+
 		if err != nil {
 			return err
 		}
@@ -185,7 +188,7 @@ func (ar AgentRunner) runInstance(
 	return nil
 }
 
-func (ar AgentRunner) getRunnerInstance(logger hclog.Logger, path string) (runner.Runner, error) {
+func (ar *AgentRunner) getRunnerInstance(logger hclog.Logger, path string) (runner.Runner, error) {
 	// We're a host! Start by launching the plugin process.
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig:  runner.HandshakeConfig,
@@ -214,6 +217,40 @@ func (ar AgentRunner) getRunnerInstance(logger hclog.Logger, path string) (runne
 	return runnerInstance, nil
 }
 
-func (ar AgentRunner) closePluginClients() {
+// DownloadPlugin checks whether we need to download the source plugin, or whether it is already on the file system.
+// If it isn't on the filesystem, we'll download it and return the final destination for use.
+func (ar *AgentRunner) DownloadPlugin(source string) (usablePlugin string, err error) {
+	// First we check if the source is a path that exists on the fs.
+	// If it does exist, it means we've been passed a binary, and we can just use it as is.
+	_, err = os.ReadFile(source)
+
+	if err == nil {
+		// The file exists. Just return it.
+		return source, err
+	}
+
+	if !os.IsNotExist(err) {
+		// The error we've received is something other than not exists.
+		// Exit early with the error
+		return "", err
+	}
+
+	loader, err := downloader.Download(source, AgentPluginDir)
+	if err != nil {
+		return "", err
+	}
+
+	dest, err := loader.GetFinalDestination()
+	if err != nil {
+		return "", err
+	}
+
+	// If we've downloaded a plugin, we should assume it's called "plugin" for the moment.
+	// We may need to find a better method of deciding what is and is not the right thing to return later.
+	// As an example, if we download a Python GRPC plugin, we will probably end up returning "main.py"
+	return path.Join(dest, "plugin"), nil
+}
+
+func (ar *AgentRunner) closePluginClients() {
 	plugin.CleanupClients()
 }
