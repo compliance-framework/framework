@@ -2,10 +2,10 @@ package internal
 
 import (
 	"archive/tar"
+	"github.com/google/go-containerregistry/pkg/name"
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 )
 
@@ -30,8 +30,8 @@ func SubtractSlice(left []string, right []string) []string {
 func IsOCI(source string) bool {
 	// Check whether this looks like an OCI endpoint
 	// You can see the verification for the regex at https://regex101.com/r/Z8172m
-	r := regexp.MustCompile(`(?i)^((http|https|oci)?:*/*)?([a-zA-Z.]*)+\.([a-zA-Z]*)/([\-_/a-zA-Z]*)(:.*)?$`)
-	return r.MatchString(source)
+	_, err := name.NewTag(source, name.StrictValidation)
+	return err == nil
 }
 
 func Untar(destination string, tarReader io.Reader) error {

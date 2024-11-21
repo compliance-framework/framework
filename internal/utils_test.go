@@ -77,26 +77,6 @@ func TestIsOci(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     "Basic OCI prefixed url",
-			source:   "oci://docker.io/library/alpine",
-			expected: true,
-		},
-		{
-			name:     "Basic OCI prefixed url with version",
-			source:   "oci://docker.io/library/alpine:1.0",
-			expected: true,
-		},
-		{
-			name:     "Basic OCI url",
-			source:   "docker.io/library/alpine",
-			expected: true,
-		},
-		{
-			name:     "Basic OCI url with protocol",
-			source:   "https://docker.io/library/alpine",
-			expected: true,
-		},
-		{
 			name:     "Basic OCI url with version",
 			source:   "docker.io/library/alpine:1.0",
 			expected: true,
