@@ -30,7 +30,7 @@ func AgentCmd() *cobra.Command {
 		Short: "long running agent for continuously checking policies against plugin data",
 		Long: `The Continuous Compliance Agent is a long running process that continuously checks policy controls
 with plugins to ensure continuous compliance.`,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := hclog.New(&hclog.LoggerOptions{
 				Name:   "agent",
 				Output: os.Stdout,
@@ -39,10 +39,7 @@ with plugins to ensure continuous compliance.`,
 			pluginRunner := AgentRunner{
 				logger: logger,
 			}
-			err := pluginRunner.Run(cmd, args)
-			if err != nil {
-				log.Fatal(err)
-			}
+			return pluginRunner.Run(cmd, args)
 		},
 	}
 

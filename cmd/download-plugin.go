@@ -6,7 +6,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/hashicorp/go-hclog"
 	"github.com/spf13/cobra"
-	"log"
 	"os"
 	"path"
 )
@@ -15,7 +14,7 @@ func DownloadPluginCmd() *cobra.Command {
 	var agentCmd = &cobra.Command{
 		Use:   "download-plugin",
 		Short: "downloads plugins from OCI or URLs",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			logger := hclog.New(&hclog.LoggerOptions{
 				Output: os.Stdout,
 				Level:  hclog.Debug,
@@ -23,10 +22,7 @@ func DownloadPluginCmd() *cobra.Command {
 			downloadCmd := DownloadRunner{
 				logger: logger,
 			}
-			err := downloadCmd.Run(cmd, args)
-			if err != nil {
-				log.Fatal(err)
-			}
+			return downloadCmd.Run(cmd, args)
 		},
 	}
 
