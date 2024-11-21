@@ -28,8 +28,7 @@ func SubtractSlice(left []string, right []string) []string {
 }
 
 func IsOCI(source string) bool {
-	// Check whether this looks like an OCI endpoint
-	// You can see the verification for the regex at https://regex101.com/r/Z8172m
+	// Check whether this can be parsed as an OCI endpoint
 	_, err := name.NewTag(source, name.StrictValidation)
 	return err == nil
 }
