@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
-	"github.com/chris-cmsoft/concom/internal/downloader"
+	"github.com/chris-cmsoft/concom/internal"
 	"github.com/chris-cmsoft/concom/runner"
 	"github.com/chris-cmsoft/concom/runner/proto"
+	"github.com/compliance-framework/gooci/pkg/oci"
 	"github.com/coreos/go-systemd/v22/daemon"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/open-policy-agent/opa/rego"
@@ -226,6 +229,7 @@ func (ar *AgentRunner) DownloadPlugin(source string) (usablePlugin string, err e
 
 	if err == nil {
 		// The file exists. Just return it.
+		ar.logger.Debug("Found plugin locally. Using local binary.", "Binary", source)
 		return source, err
 	}
 
@@ -235,20 +239,34 @@ func (ar *AgentRunner) DownloadPlugin(source string) (usablePlugin string, err e
 		return "", err
 	}
 
-	loader, err := downloader.Download(source, AgentPluginDir)
-	if err != nil {
-		return "", err
+	if internal.IsOCI(source) {
+		ar.logger.Debug("Plugin looks like an OCI endpoint. Attempting to download.", "Source", source)
+		tag, err := name.NewTag(source)
+		if err != nil {
+			return "", err
+		}
+
+		destination := path.Join(AgentPluginDir, tag.RepositoryStr(), tag.Identifier())
+
+		downloaderImpl, err := oci.NewDownloader(
+			tag,
+			destination,
+		)
+		if err != nil {
+			return "", err
+		}
+		err = downloaderImpl.Download()
+		if err != nil {
+			return "", err
+		}
+		pluginBinary := path.Join(destination, "plugin")
+		ar.logger.Debug("Plugin downloaded successfully.", "Destination", pluginBinary)
+		return pluginBinary, nil
 	}
 
-	dest, err := loader.GetFinalDestination()
-	if err != nil {
-		return "", err
-	}
+	// TODO We should download artifacts too
 
-	// If we've downloaded a plugin, we should assume it's called "plugin" for the moment.
-	// We may need to find a better method of deciding what is and is not the right thing to return later.
-	// As an example, if we download a Python GRPC plugin, we will probably end up returning "main.py"
-	return path.Join(dest, "plugin"), nil
+	return "", errors.New("plugin source not found")
 }
 
 func (ar *AgentRunner) closePluginClients() {

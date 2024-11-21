@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 )
 
@@ -24,6 +25,13 @@ func SubtractSlice(left []string, right []string) []string {
 	}
 
 	return remains
+}
+
+func IsOCI(source string) bool {
+	// Check whether this looks like an OCI endpoint
+	// You can see the verification for the regex at https://regex101.com/r/Z8172m
+	r := regexp.MustCompile(`(?i)^((http|https|oci)?:*/*)?([a-zA-Z.]*)+\.([a-zA-Z]*)/([\-_/a-zA-Z]*)(:.*)?$`)
+	return r.MatchString(source)
 }
 
 func Untar(destination string, tarReader io.Reader) error {
