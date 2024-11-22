@@ -55,7 +55,6 @@ with plugins to ensure continuous compliance.`,
 	agentCmd.MarkFlagsOneRequired("plugin")
 
 	agentCmd.Flags().String("nats-uri", nats.DefaultURL, "NATS Server URL")
-	agentCmd.MarkFlagRequired("nats-uri")
 
 	agentCmd.Flags().BoolP("daemon", "d", false, "Specify to run as a long running daemon")
 
