@@ -11,14 +11,14 @@ func main() {
 	var rootCmd = &cobra.Command{
 		Use:   "cf",
 		Short: "cf manages policies for the compliance framework",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("cf called")
-			// Do Stuff Here
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Usage()
 		},
 	}
 
 	rootCmd.AddCommand(cmd.VerifyCmd())
 	rootCmd.AddCommand(cmd.AgentCmd())
+	rootCmd.AddCommand(cmd.DownloadPluginCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

@@ -69,3 +69,49 @@ func TestSubtractSlice(t *testing.T) {
 		})
 	}
 }
+
+func TestIsOci(t *testing.T) {
+	tests := []struct {
+		name     string
+		source   string
+		expected bool
+	}{
+		{
+			name:     "Basic OCI url with version",
+			source:   "docker.io/library/alpine:1.0",
+			expected: true,
+		},
+		{
+			name:     "Basic OCI url with latest tag",
+			source:   "docker.io/library/alpine:latest",
+			expected: true,
+		},
+		{
+			name:     "Tar artifact",
+			source:   "docker.io/library/alpine.tar.gz",
+			expected: false,
+		},
+		{
+			name:     "Tar artifact with https",
+			source:   "https://docker.io/library/alpine.tar.gz",
+			expected: false,
+		},
+		{
+			name:     "Zip artifact",
+			source:   "docker.io/library/alpine.zip",
+			expected: false,
+		},
+		{
+			name:     "Zip artifact with https",
+			source:   "https://docker.io/library/alpine.zip",
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsOCI(tt.source); got != tt.expected {
+				t.Errorf("isOciPlugin() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
