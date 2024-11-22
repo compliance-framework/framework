@@ -97,16 +97,12 @@ func (ar *AgentRunner) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if !daemon {
-		err := ar.runInstance(plugins, policyBundles, nc)
-		if err != nil {
-			ar.logger.Error("error running instance", "error", err)
-			return err
-		}
+	if daemon {
+		ar.runDaemon(plugins, policyBundles, nc)
+		return nil
 	}
-	ar.runDaemon(plugins, policyBundles, nc)
 
-	return nil
+	return ar.runInstance(plugins, policyBundles, nc)
 }
 
 // Should never return, either handles any error or panics.
