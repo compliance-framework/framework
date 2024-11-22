@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/nats-io/nats.go"
+	"github.com/open-policy-agent/opa/rego"
 	"github.com/spf13/cobra"
 	"log"
 	"os"
