@@ -24,10 +24,16 @@ Polices, although not strictly required, are written in Rego, and passed to each
 the data it has collected, conforms with organisational policies. 
 
 For each violation of the policies, the plugin will report findings and observations to the agent, which in turn will
-report these to the central configuration api. 
+report these to the central configuration api.
+
+## NATS
+
+Upon the plugin(s) running, they'll send the results of the Observations and/or Findings to an event queue (-flag configured).
+
+To run an instance of NATS, checkout the [local-dev](https://github.com/compliance-framework/local-dev) repository: 
 
 ## Usage
 
 ```shell
-go run main.go agent --policy PATH_TO_OPA_DIR_OR_BUNDLE --plugin PATH_TO_PLUGIN_EXECUTABLE
+go run main.go agent --policy PATH_TO_OPA_DIR_OR_BUNDLE --plugin PATH_TO_PLUGIN_EXECUTABLE --nats-uri nats://localhost:4222
 ```
