@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -10,6 +9,19 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+type AgentConfig struct {
+	PluginConfig map[string]struct {
+		AssessmentPlanId string `mapstructure:"assessment_plan_id"`
+
+		Schedule string `mapstructure:"schedule"`
+
+		Source string `mapstructure:"source"`
+		Policies []string `mapstructure:"policies"`
+
+		Config map[string]string `mapstructure:"config"`
+	} `mapstructure:"plugins"`
+}
 
 // GetAgentConfigFile returns the config file path from the command line arguments
 //
@@ -20,8 +32,8 @@ func GetAgentConfigFile(cmd *cobra.Command) string {
 	if err != nil {
 		log.Fatal("Missing Config File")
 	}
-	if os.Stat(configFile); os.IsNotExist(err) {
-		log.Fatal("Cannot find file")
+	if _, err = os.Stat(configFile); os.IsNotExist(err) {
+		log.Fatalf("Cannot find file: %v", configFile)
 	}
 	return configFile
 }
@@ -29,7 +41,6 @@ func GetAgentConfigFile(cmd *cobra.Command) string {
 // ReadAgentConfig reads the agent config file and returns the config type. If it can't
 // determine the config type, it will panic.
 func ReadAgentConfig(configPath string) {
-	fmt.Println(filepath.Base(configPath))
 	viper.AddConfigPath(filepath.Dir(configPath))
 	switch filepath.Ext(configPath) {
 	case ".json":
@@ -48,5 +59,9 @@ func ReadAgentConfig(configPath string) {
 		log.Fatalf("Unsupported config file type: %v", filepath.Ext(configPath))
 	}
 
-	viper.ReadInConfig()
+	viper.AutomaticEnv()
+
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalf("Error reading config file: %v", err)
+	}
 }

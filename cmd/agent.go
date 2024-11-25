@@ -247,6 +247,8 @@ type AgentRunner struct {
 
 	pluginLocations map[string]string
 
+	pluginLocations map[string]string
+
 	queryBundles []*rego.Rego
 }
 
