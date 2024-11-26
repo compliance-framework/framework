@@ -17,7 +17,7 @@ nats:
 
 plugins:
   <plugin_identifier>:  # Can have as many of these as you like
-    assessment_plan_ids: 
+    assessment_plan_ids:
       - <assessment_plan_id>
       - <assessment_plan_id>
     source: <plugin_source>
@@ -57,7 +57,7 @@ nats:
 
 plugins:
   local-ssh-security:
-    assessment_plan_ids: 
+    assessment_plan_ids:
       - "12341234-1234-1234-123412341234"
 
     source: "../plugin-local-ssh/cf-plugin-local-ssh"
@@ -70,7 +70,7 @@ plugins:
       password: "password"
 
   local-ssh-security2:
-    assessment_plan_id: 
+    assessment_plan_id:
       - "45674567-4567-4567-456745674567"
 
     source: "../plugin-local-ssh/cf-plugin-local-ssh"
