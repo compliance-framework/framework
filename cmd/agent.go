@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/chris-cmsoft/concom/internal"
+	"github.com/chris-cmsoft/concom/internal/event"
 	"github.com/chris-cmsoft/concom/runner"
 	"github.com/chris-cmsoft/concom/runner/proto"
 	"github.com/compliance-framework/gooci/pkg/oci"
@@ -14,7 +14,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
-	"github.com/nats-io/nats.go"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -247,20 +246,18 @@ type AgentRunner struct {
 
 	pluginLocations map[string]string
 
-	pluginLocations map[string]string
-
 	queryBundles []*rego.Rego
 }
 
 func (ar *AgentRunner) Run() error {
 	ar.logger.Info("Starting agent", "daemon", ar.config.Daemon, "nats_uri", ar.config.Nats.Url)
 
-	nc, err := nats.Connect(ar.config.Nats.Url)
+	err := event.Connect(ar.config.Nats.Url)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer nc.Close()
+	defer event.Close()
 
 	err = ar.DownloadPlugins()
 	if err != nil {
@@ -268,16 +265,16 @@ func (ar *AgentRunner) Run() error {
 	}
 
 	if ar.config.Daemon == true {
-		ar.runDaemon(nc)
+		ar.runDaemon()
 		return nil
 	}
 
-	return ar.runInstance(nc)
+	return ar.runInstance()
 }
 
 // Should never return, either handles any error or panics.
 // TODO: We should take a cancellable context here, so the caller can cancel the daemon at any time, and continue to whatever is appropriate
-func (ar *AgentRunner) runDaemon(nc *nats.Conn) {
+func (ar *AgentRunner) runDaemon() {
 	sigs := make(chan os.Signal, 1)
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -293,7 +290,7 @@ func (ar *AgentRunner) runDaemon(nc *nats.Conn) {
 	go daemon.SdNotify(false, "READY=1")
 
 	for {
-		err := ar.runInstance(nc)
+		err := ar.runInstance()
 
 		if err != nil {
 			ar.logger.Error("error running instance", "error", err)
@@ -310,7 +307,7 @@ func (ar *AgentRunner) runDaemon(nc *nats.Conn) {
 //
 // Returns:
 // - error: any error that occurred during the run
-func (ar *AgentRunner) runInstance(nc *nats.Conn) error {
+func (ar *AgentRunner) runInstance() error {
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
 
@@ -341,11 +338,19 @@ func (ar *AgentRunner) runInstance(nc *nats.Conn) error {
 			Config: pluginConfig.Config,
 		})
 		if err != nil {
+			result := runner.ErrorResult( pluginConfig.AssessmentPlanId, err)
+			if pubErr := event.Publish(result, "job.result"); pubErr != nil {
+				logger.Error("Error publishing configure result", "error", pubErr)
+			}
 			return err
 		}
 
 		_, err = runnerInstance.PrepareForEval(&proto.PrepareForEvalRequest{})
 		if err != nil {
+			result := runner.ErrorResult( pluginConfig.AssessmentPlanId, err)
+			if pubErr := event.Publish(result, "job.result"); pubErr != nil {
+				logger.Error("Error publishing evaslutae result", "error", pubErr)
+			}
 			return err
 		}
 
@@ -353,8 +358,23 @@ func (ar *AgentRunner) runInstance(nc *nats.Conn) error {
 			res, err := runnerInstance.Eval(&proto.EvalRequest{
 				BundlePath: string(*inputBundle),
 			})
+
 			if err != nil {
+				result := runner.ErrorResult(pluginConfig.AssessmentPlanId, err)
+				if pubErr := event.Publish(result, "job.result"); pubErr != nil {
+					logger.Error("Error publishing evaslutae result", "error", pubErr)
+				}
 				return err
+			}
+
+			result := runner.Result{
+				Status:       res.Status,
+				AssessmentId: pluginConfig.AssessmentPlanId,
+				Error:        err,
+				Observations: res.Observations,
+				Findings:     res.Findings,
+				Risks:        res.Risks,
+				Logs:         res.Logs,
 			}
 
 			fmt.Println("Output from runner:")
@@ -362,22 +382,9 @@ func (ar *AgentRunner) runInstance(nc *nats.Conn) error {
 			fmt.Println("Observations:", res.Observations)
 			fmt.Println("Log Entries:", res.Logs)
 
-			// Publish findings to nats subjects
-			findings, err := json.Marshal(res.Findings)
-			if err != nil {
-				return err
-			}
-			if err := nc.Publish("Findings", findings); err != nil {
-				return err
-			}
-
-			// Publish observations to nats subjects
-			observations, err := json.Marshal(res.Observations)
-			if err != nil {
-				return err
-			}
-			if err := nc.Publish("Observations", observations); err != nil {
-				return err
+			// Publish findings to nats
+			if pubErr := event.Publish(result, "job.result"); pubErr != nil {
+				logger.Error("Error publishing result", "error", pubErr)
 			}
 		}
 	}
