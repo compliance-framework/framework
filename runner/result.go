@@ -4,7 +4,7 @@ import "github.com/chris-cmsoft/concom/runner/proto"
 
 type Result struct {
 	Status       proto.ExecutionStatus   `json:"status"`
-	AssessmentId string                  `json:"assessment_id"`
+	AssessmentId string                  `json:"assessmentId"`
 	Error        error                   `json:"error"`
 	Observations []*proto.Observation    `json:"observations"`
 	Findings     []*proto.Finding        `json:"findings"`

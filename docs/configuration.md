@@ -17,7 +17,7 @@ nats:
 
 plugins:
   <plugin_identifier>:  # Can have as many of these as you like
-    assessment_plan_ids:
+    assessmentPlanIds:
       - <assessment_plan_id>
       - <assessment_plan_id>
     source: <plugin_source>
@@ -36,7 +36,7 @@ The `nats_domain` and `nats_port` items are the domain and port of the NATS serv
 The `plugin_identifier` is a unique identifier for the plugin, and is used to identify the plugin in the logs, you can
 name this whatever you like but it must be unique.
 
-The `assessment_plan_ids` are the ids of the assessment plans that the plugin is associated with.
+The `assessmentPlanIds` are the ids of the assessment plans that the plugin is associated with.
 
 The `plugin_source` is the path to the plugin binary that the agent will run. This can be a relative or absolute path or
 even a URL to a remote plugin.
@@ -57,7 +57,7 @@ nats:
 
 plugins:
   local-ssh-security:
-    assessment_plan_ids:
+    assessmentPlanIds:
       - "12341234-1234-1234-123412341234"
 
     source: "../plugin-local-ssh/cf-plugin-local-ssh"
@@ -70,7 +70,7 @@ plugins:
       password: "password"
 
   local-ssh-security2:
-    assessment_plan_id:
+    assessmentPlanIds:
       - "45674567-4567-4567-456745674567"
 
     source: "../plugin-local-ssh/cf-plugin-local-ssh"

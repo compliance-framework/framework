@@ -17,6 +17,7 @@ import (
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"os"
 	"os/exec"
@@ -37,7 +38,7 @@ type agentPolicy string
 type agentPluginConfig map[string]string
 
 type agentPlugin struct {
-	AssessmentPlanIds []*string         `json:"assessment_plan_ids"`
+	AssessmentPlanIds []*string         `json:"assessmentPlanIds"`
 	Source            *string           `json:"source"`
 	Policies          []*agentPolicy    `json:"policy"`
 	Config            agentPluginConfig `json:"config"`
@@ -94,9 +95,6 @@ with plugins to ensure continuous compliance.`,
 	agentCmd.Flags().StringP("config", "c", "", "Location of config file")
 	agentCmd.MarkFlagRequired("config")
 
-	agentCmd.Flags().StringP("config", "c", "", "Location of config file")
-	agentCmd.MarkFlagRequired("config")
-
 	return agentCmd
 }
 
@@ -134,6 +132,7 @@ func mergeConfig(cmd *cobra.Command, fileConfig *viper.Viper) (*agentConfig, err
 
 	config := &agentConfig{}
 	err := fileConfig.Unmarshal(config)
+	log.Println("Merged config", "config", config.Plugins["local-ssh-security"])
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +160,7 @@ func agentRunner(cmd *cobra.Command, args []string) error {
 	v.SetConfigFile(configPath)
 	v.AutomaticEnv()
 
-	loadConfig := func(configPath string) (*agentConfig, error) {
+	loadConfig := func() (*agentConfig, error) {
 		err := v.ReadInConfig()
 		if err != nil {
 			return nil, err
@@ -179,7 +178,7 @@ func agentRunner(cmd *cobra.Command, args []string) error {
 		return config, nil
 	}
 
-	config, err := loadConfig(configPath)
+	config, err := loadConfig()
 	if err != nil {
 		return err
 	}
@@ -193,6 +192,8 @@ func agentRunner(cmd *cobra.Command, args []string) error {
 	agentRunner := AgentRunner{
 		logger: logger,
 		config: *config,
+
+		pluginLocations: map[string]string{},
 	}
 
 	v.OnConfigChange(func(in fsnotify.Event) {
@@ -207,7 +208,7 @@ func agentRunner(cmd *cobra.Command, args []string) error {
 		// This will exit the whole process of the agent. This might not be ideal.
 		// Maybe a better strategy here is to re-use the old config and log an error, so the process can continue
 		// until the config is fixed ?
-		config, err := loadConfig(configPath)
+		config, err := loadConfig()
 		if err != nil {
 			logger.Error("Error downloading plugins", "error", err)
 			panic(err)
@@ -322,6 +323,17 @@ func (ar *AgentRunner) runInstance() error {
 
 		source := ar.pluginLocations[*pluginConfig.Source]
 
+		assessmentPlanIds := []string{}
+		for _, assessmentPlanId := range pluginConfig.AssessmentPlanIds {
+			planIdObject, err := primitive.ObjectIDFromHex(*assessmentPlanId)
+			if err != nil {
+				return err
+			}
+			assessmentPlanIds = append(assessmentPlanIds, planIdObject.Hex())
+		}
+
+		logger.Debug("Using assessment plan ids", "ids", assessmentPlanIds)
+
 		logger.Debug("Running plugin", "source", source)
 
 		if _, err := os.ReadFile(source); err != nil {
@@ -338,18 +350,22 @@ func (ar *AgentRunner) runInstance() error {
 			Config: pluginConfig.Config,
 		})
 		if err != nil {
-			result := runner.ErrorResult( pluginConfig.AssessmentPlanId, err)
-			if pubErr := event.Publish(result, "job.result"); pubErr != nil {
-				logger.Error("Error publishing configure result", "error", pubErr)
+			for _, assessmentPlanId := range assessmentPlanIds {
+				result := runner.ErrorResult(assessmentPlanId, err)
+				if pubErr := event.Publish(result, "job.result"); pubErr != nil {
+					logger.Error("Error publishing configure result", "error", pubErr)
+				}
 			}
 			return err
 		}
 
 		_, err = runnerInstance.PrepareForEval(&proto.PrepareForEvalRequest{})
 		if err != nil {
-			result := runner.ErrorResult( pluginConfig.AssessmentPlanId, err)
-			if pubErr := event.Publish(result, "job.result"); pubErr != nil {
-				logger.Error("Error publishing evaslutae result", "error", pubErr)
+			for _, assessmentPlanId := range assessmentPlanIds {
+				result := runner.ErrorResult(assessmentPlanId, err)
+				if pubErr := event.Publish(result, "job.result"); pubErr != nil {
+					logger.Error("Error publishing evaslutae result", "error", pubErr)
+				}
 			}
 			return err
 		}
@@ -360,21 +376,13 @@ func (ar *AgentRunner) runInstance() error {
 			})
 
 			if err != nil {
-				result := runner.ErrorResult(pluginConfig.AssessmentPlanId, err)
-				if pubErr := event.Publish(result, "job.result"); pubErr != nil {
-					logger.Error("Error publishing evaslutae result", "error", pubErr)
+				for _, assessmentPlanId := range assessmentPlanIds {
+					result := runner.ErrorResult(assessmentPlanId, err)
+					if pubErr := event.Publish(result, "job.result"); pubErr != nil {
+						logger.Error("Error publishing evaslutae result", "error", pubErr)
+					}
 				}
 				return err
-			}
-
-			result := runner.Result{
-				Status:       res.Status,
-				AssessmentId: pluginConfig.AssessmentPlanId,
-				Error:        err,
-				Observations: res.Observations,
-				Findings:     res.Findings,
-				Risks:        res.Risks,
-				Logs:         res.Logs,
 			}
 
 			fmt.Println("Output from runner:")
@@ -382,9 +390,21 @@ func (ar *AgentRunner) runInstance() error {
 			fmt.Println("Observations:", res.Observations)
 			fmt.Println("Log Entries:", res.Logs)
 
-			// Publish findings to nats
-			if pubErr := event.Publish(result, "job.result"); pubErr != nil {
-				logger.Error("Error publishing result", "error", pubErr)
+			for _, assessmentPlanId := range assessmentPlanIds {
+				result := runner.Result{
+					Status:       res.Status,
+					AssessmentId: assessmentPlanId,
+					Error:        err,
+					Observations: res.Observations,
+					Findings:     res.Findings,
+					Risks:        res.Risks,
+					Logs:         res.Logs,
+				}
+
+				// Publish findings to nats
+				if pubErr := event.Publish(result, "job.result"); pubErr != nil {
+					logger.Error("Error publishing result", "error", pubErr)
+				}
 			}
 		}
 	}
@@ -484,9 +504,6 @@ func (ar *AgentRunner) DownloadPlugins() error {
 			pluginBinary := path.Join(destination, "plugin")
 			ar.logger.Debug("Plugin downloaded successfully", "Destination", pluginBinary)
 
-			if ar.pluginLocations == nil {
-				ar.pluginLocations = map[string]string{}
-			}
 			// Update the source in the agent configuration to the new path
 			ar.pluginLocations[source] = pluginBinary
 		} else {
