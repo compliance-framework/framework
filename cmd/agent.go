@@ -2,27 +2,75 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/chris-cmsoft/concom/internal"
 	"github.com/chris-cmsoft/concom/runner"
 	"github.com/chris-cmsoft/concom/runner/proto"
 	"github.com/compliance-framework/gooci/pkg/oci"
 	"github.com/coreos/go-systemd/v22/daemon"
+	"github.com/fsnotify/fsnotify"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/nats-io/nats.go"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"log"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path"
+	"sync"
 	"syscall"
 	"time"
 )
+
+type natsConfig struct {
+	Url string `json:"url"`
+}
+
+type agentPolicy string
+
+type agentPluginConfig map[string]string
+
+type agentPlugin struct {
+	AssessmentPlanIds []*string         `json:"assessment_plan_ids"`
+	Source            *string           `json:"source"`
+	Policies          []*agentPolicy    `json:"policy"`
+	Config            agentPluginConfig `json:"config"`
+}
+
+type agentConfig struct {
+	Daemon    bool                    `mapstructure:"daemon"`
+	Verbosity int32                   `mapstructure:"verbosity"`
+	Nats      *natsConfig             `mapstructure:"nats"`
+	Plugins   map[string]*agentPlugin `mapstructure:"plugins"`
+}
+
+// logVerbosity reverses our verbosity "increase" to hclog's reversed "decrease."
+// 1 for us means INFO. 1 for hclog means trace.
+// 3 for us means TRACE. 3 for hclog means INFO.
+// You can see hclog's verbosity here: https://github.com/hashicorp/go-hclog/blob/cb8687c9c619227eac510d0a76d23997fb6667d3/logger.go#L25
+func (ac *agentConfig) logVerbosity() int32 {
+	return int32(hclog.Info) - ac.Verbosity
+}
+
+func (ac *agentConfig) validate() error {
+	if ac.Nats == nil {
+		return fmt.Errorf("no nats configuration available in config file")
+	}
+
+	if ac.Nats.Url == "" {
+		return fmt.Errorf("invalid nats url: %s", ac.Nats.Url)
+	}
+
+	if len(ac.Plugins) == 0 {
+		return fmt.Errorf("no plugins specified in config")
+	}
+
+	return nil
+}
 
 const AgentPluginDir = ".compliance-framework/plugins"
 
@@ -32,81 +80,196 @@ func AgentCmd() *cobra.Command {
 		Short: "long running agent for continuously checking policies against plugin data",
 		Long: `The Continuous Compliance Agent is a long running process that continuously checks policy controls
 with plugins to ensure continuous compliance.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			logger := hclog.New(&hclog.LoggerOptions{
-				Name:   "agent",
-				Output: os.Stdout,
-				Level:  hclog.Trace,
-			})
-			pluginRunner := AgentRunner{
-				logger: logger,
-			}
-			return pluginRunner.Run(cmd, args)
-		},
+		RunE: agentRunner,
 	}
 
-	agentCmd.Flags().StringArray("policy", []string{}, "Directory or Bundle archive where policies are stored")
-	err := agentCmd.MarkFlagRequired("policy")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	agentCmd.Flags().StringArray("plugin", []string{}, "Plugin executable or directory")
-	agentCmd.MarkFlagsOneRequired("plugin")
-
-	agentCmd.Flags().String("nats-uri", nats.DefaultURL, "NATS Server URL")
+	agentCmd.Flags().CountP("verbose", "v", "Enable verbose output")
+	viper.BindPFlag("verbose", agentCmd.Flags().Lookup("verbose"))
 
 	agentCmd.Flags().BoolP("daemon", "d", false, "Specify to run as a long running daemon")
+	viper.BindPFlag("daemon", agentCmd.Flags().Lookup("daemon"))
+
+	agentCmd.Flags().StringP("config", "c", "", "Location of config file")
+	agentCmd.MarkFlagRequired("config")
 
 	return agentCmd
+}
+
+func mergeConfig(cmd *cobra.Command, fileConfig *viper.Viper) (*agentConfig, error) {
+	// For now, we are reading from a file. This will probably be updated to a remote source soon.
+
+	// Daemon has a default false value, which will override all values passed through Viper.
+	// We need to check whether it was actually passed `Changed()`, and then merge its value into our config.
+	if cmd.Flags().Changed("daemon") {
+		isDaemon, err := cmd.Flags().GetBool("daemon")
+		if err != nil {
+			return nil, err
+		}
+
+		err = fileConfig.MergeConfigMap(map[string]interface{}{
+			"daemon": isDaemon,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if cmd.Flags().Changed("verbose") {
+		verbosity, err := cmd.Flags().GetCount("verbose")
+		if err != nil {
+			return nil, err
+		}
+		err = fileConfig.MergeConfigMap(map[string]interface{}{
+			"verbosity": verbosity,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	config := &agentConfig{}
+	err := fileConfig.Unmarshal(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
+// Main the entrypoint for the `agent` command
+//
+// It will read the configuration file, and then run the agent. Various command line flags can
+// be used to override the config file.
+func agentRunner(cmd *cobra.Command, args []string) error {
+
+	configPath := cmd.Flag("config").Value.String()
+
+	if !path.IsAbs(configPath) {
+		workDir, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		configPath = path.Join(workDir, configPath)
+	}
+
+	v := viper.New()
+	v.SetConfigFile(configPath)
+	v.AutomaticEnv()
+
+	loadConfig := func(configPath string) (*agentConfig, error) {
+		err := v.ReadInConfig()
+		if err != nil {
+			return nil, err
+		}
+
+		config, err := mergeConfig(cmd, v)
+		if err != nil {
+			return nil, err
+		}
+
+		err = config.validate()
+		if err != nil {
+			return nil, err
+		}
+		return config, nil
+	}
+
+	config, err := loadConfig(configPath)
+	if err != nil {
+		return err
+	}
+
+	logger := hclog.New(&hclog.LoggerOptions{
+		Name:   "agent",
+		Output: os.Stdout,
+		Level:  hclog.Level(config.logVerbosity()),
+	})
+
+	agentRunner := AgentRunner{
+		logger: logger,
+		config: *config,
+	}
+
+	v.OnConfigChange(func(in fsnotify.Event) {
+		// We want to wait for any running agent processes to finish first.
+		logger.Debug("config file changed", "path", in.Name)
+		logger.Debug("waiting for lock to update configurations")
+		agentRunner.mu.Lock()
+		logger.Debug("received lock to update configurations")
+		defer agentRunner.mu.Unlock()
+
+		// When the config changes, if this gives us an error, it's likely due to the config being invalid.
+		// This will exit the whole process of the agent. This might not be ideal.
+		// Maybe a better strategy here is to re-use the old config and log an error, so the process can continue
+		// until the config is fixed ?
+		config, err := loadConfig(configPath)
+		if err != nil {
+			logger.Error("Error downloading plugins", "error", err)
+			panic(err)
+		}
+
+		agentRunner.config = *config
+
+		err = agentRunner.DownloadPlugins()
+
+		if err != nil {
+			logger.Error("Error downloading plugins", "error", err)
+			panic(err)
+		}
+		logger.Debug("Successfully reloaded configuration")
+	})
+	v.WatchConfig()
+
+	err = agentRunner.Run()
+
+	// Don't return the error as that will cause it to spit help out, which is no
+	// longer useful at this stage. Log the error and then exit
+	if err != nil {
+		logger.Error("Error running agent", "error", err)
+		os.Exit(1)
+	}
+
+	return nil
 }
 
 type AgentRunner struct {
 	logger hclog.Logger
 
+	mu sync.Mutex
+
+	config agentConfig
+
+	pluginLocations map[string]string
+
 	queryBundles []*rego.Rego
 }
 
-func (ar *AgentRunner) Run(cmd *cobra.Command, args []string) error {
-	//ctx := context.TODO()
+func (ar *AgentRunner) Run() error {
+	ar.logger.Info("Starting agent", "daemon", ar.config.Daemon, "nats_uri", ar.config.Nats.Url)
 
-	natsUri, err := cmd.Flags().GetString("nats-uri")
-	if err != nil {
-		return err
-	}
-
-	nc, err := nats.Connect(natsUri)
+	nc, err := nats.Connect(ar.config.Nats.Url)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	defer nc.Close()
 
-	policyBundles, err := cmd.Flags().GetStringArray("policy")
+	err = ar.DownloadPlugins()
 	if err != nil {
 		return err
 	}
 
-	plugins, err := cmd.Flags().GetStringArray("plugin")
-	if err != nil {
-		return err
-	}
-
-	daemon, err := cmd.Flags().GetBool("daemon")
-	if err != nil {
-		return err
-	}
-
-	if daemon {
-		ar.runDaemon(plugins, policyBundles, nc)
+	if ar.config.Daemon == true {
+		ar.runDaemon(nc)
 		return nil
 	}
 
-	return ar.runInstance(plugins, policyBundles, nc)
+	return ar.runInstance(nc)
 }
 
 // Should never return, either handles any error or panics.
-func (ar *AgentRunner) runDaemon(plugins []string, policyBundles []string, nc *nats.Conn) {
+// TODO: We should take a cancellable context here, so the caller can cancel the daemon at any time, and continue to whatever is appropriate
+func (ar *AgentRunner) runDaemon(nc *nats.Conn) {
 	sigs := make(chan os.Signal, 1)
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -122,7 +285,7 @@ func (ar *AgentRunner) runDaemon(plugins []string, policyBundles []string, nc *n
 	go daemon.SdNotify(false, "READY=1")
 
 	for {
-		err := ar.runInstance(plugins, policyBundles, nc)
+		err := ar.runInstance(nc)
 
 		if err != nil {
 			ar.logger.Error("error running instance", "error", err)
@@ -137,37 +300,37 @@ func (ar *AgentRunner) runDaemon(plugins []string, policyBundles []string, nc *n
 // Run the agent as an instance, this is a single run of the agent that will check the
 // policies against the plugins.
 //
-// Arguments:
-// - plugins: list of plugin paths
-// - policyBundles: list of policy bundle paths
 // Returns:
 // - error: any error that occurred during the run
-func (ar *AgentRunner) runInstance(plugins []string, policyBundles []string, nc *nats.Conn) error {
+func (ar *AgentRunner) runInstance(nc *nats.Conn) error {
+	ar.mu.Lock()
+	defer ar.mu.Unlock()
+
 	defer ar.closePluginClients()
 
-	for _, source := range plugins {
+	for pluginName, pluginConfig := range ar.config.Plugins {
 		logger := hclog.New(&hclog.LoggerOptions{
-			Name:   "runner",
+			Name:   fmt.Sprintf("runner.%s", pluginName),
 			Output: os.Stdout,
-			Level:  hclog.Debug,
+			Level:  hclog.Level(ar.config.logVerbosity()),
 		})
 
-		pluginPath, err := ar.DownloadPlugin(source)
-		if err != nil {
+		source := ar.pluginLocations[*pluginConfig.Source]
+
+		logger.Debug("Running plugin", "source", source)
+
+		if _, err := os.ReadFile(source); err != nil {
 			return err
 		}
 
-		runnerInstance, err := ar.getRunnerInstance(logger, pluginPath)
+		runnerInstance, err := ar.getRunnerInstance(logger, source)
 
 		if err != nil {
 			return err
 		}
 
 		_, err = runnerInstance.Configure(&proto.ConfigureRequest{
-			Config: map[string]string{
-				"host": "127.0.0.1",
-				"port": "22",
-			},
+			Config: pluginConfig.Config,
 		})
 		if err != nil {
 			return err
@@ -178,9 +341,9 @@ func (ar *AgentRunner) runInstance(plugins []string, policyBundles []string, nc 
 			return err
 		}
 
-		for _, inputBundle := range policyBundles {
+		for _, inputBundle := range pluginConfig.Policies {
 			res, err := runnerInstance.Eval(&proto.EvalRequest{
-				BundlePath: inputBundle,
+				BundlePath: string(*inputBundle),
 			})
 			if err != nil {
 				return err
@@ -243,53 +406,79 @@ func (ar *AgentRunner) getRunnerInstance(logger hclog.Logger, path string) (runn
 	return runnerInstance, nil
 }
 
-// DownloadPlugin checks whether we need to download the source plugin, or whether it is already on the file system.
-// If it isn't on the filesystem, we'll download it and return the final destination for use.
-func (ar *AgentRunner) DownloadPlugin(source string) (usablePlugin string, err error) {
-	// First we check if the source is a path that exists on the fs.
-	// If it does exist, it means we've been passed a binary, and we can just use it as is.
-	_, err = os.ReadFile(source)
+// DownloadPlugins checks each item in the config and retrieves the source of the plugin
+// building a set of unique sources. It then checks if the source is a path that exists on
+// the filesystem, if it isn't, it will download the plugin to the filesystem.
+//
+// We also update the map of plugin sources, this could be an identity map if it's a local
+// file or maps from the URL to the local file if we downloaded a remote file.
+//
+// We return any errors that occurred during the download process. TODO: What is the right
+// error handling here?
+func (ar *AgentRunner) DownloadPlugins() error {
+	// Build a set of unique plugin sources
+	pluginSources := map[string]struct{}{}
 
-	if err == nil {
-		// The file exists. Just return it.
-		ar.logger.Debug("Found plugin locally. Using local binary.", "Binary", source)
-		return source, err
+	for _, pluginConfig := range ar.config.Plugins {
+		pluginSources[*pluginConfig.Source] = struct{}{}
 	}
 
-	if !os.IsNotExist(err) {
-		// The error we've received is something other than not exists.
-		// Exit early with the error
-		return "", err
+	for source := range pluginSources {
+		ar.logger.Trace("Checking for plugin source", "source", source)
+
+		// First we check if the source is a path that exists on the fs.
+		// If it does exist, it means we've been passed a binary, and we can just use it as is.
+		_, err := os.ReadFile(source)
+
+		if err == nil {
+			// The file exists. Just return it.
+			ar.logger.Debug("Found plugin locally, using local binary", "Binary", source)
+			ar.pluginLocations[source] = source
+			continue
+		}
+
+		if !os.IsNotExist(err) {
+			// The error we've received is something other than not exists.
+			// Exit early with the error
+			return err
+		}
+
+		if internal.IsOCI(source) {
+			ar.logger.Debug("Plugin looks like an OCI endpoint, attempting to download", "Source", source)
+			tag, err := name.NewTag(source)
+			if err != nil {
+				return err
+			}
+
+			destination := path.Join(AgentPluginDir, tag.RepositoryStr(), tag.Identifier())
+
+			downloaderImpl, err := oci.NewDownloader(
+				tag,
+				destination,
+			)
+			if err != nil {
+				return err
+			}
+			err = downloaderImpl.Download()
+			if err != nil {
+				return err
+			}
+			pluginBinary := path.Join(destination, "plugin")
+			ar.logger.Debug("Plugin downloaded successfully", "Destination", pluginBinary)
+
+			if ar.pluginLocations == nil {
+				ar.pluginLocations = map[string]string{}
+			}
+			// Update the source in the agent configuration to the new path
+			ar.pluginLocations[source] = pluginBinary
+		} else {
+			ar.logger.Debug("Attempting to download artifact (TODO)", "Source", source)
+
+			// TODO We should download artifacts too
+		}
 	}
 
-	if internal.IsOCI(source) {
-		ar.logger.Debug("Plugin looks like an OCI endpoint. Attempting to download.", "Source", source)
-		tag, err := name.NewTag(source)
-		if err != nil {
-			return "", err
-		}
-
-		destination := path.Join(AgentPluginDir, tag.RepositoryStr(), tag.Identifier())
-
-		downloaderImpl, err := oci.NewDownloader(
-			tag,
-			destination,
-		)
-		if err != nil {
-			return "", err
-		}
-		err = downloaderImpl.Download()
-		if err != nil {
-			return "", err
-		}
-		pluginBinary := path.Join(destination, "plugin")
-		ar.logger.Debug("Plugin downloaded successfully.", "Destination", pluginBinary)
-		return pluginBinary, nil
-	}
-
-	// TODO We should download artifacts too
-
-	return "", errors.New("plugin source not found")
+	return nil
 }
 
 func (ar *AgentRunner) closePluginClients() {

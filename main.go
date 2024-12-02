@@ -16,7 +16,6 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(cmd.VerifyCmd())
 	rootCmd.AddCommand(cmd.AgentCmd())
 	rootCmd.AddCommand(cmd.DownloadPluginCmd())
 
