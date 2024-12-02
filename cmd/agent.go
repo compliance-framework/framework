@@ -10,6 +10,8 @@ import (
 	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/nats-io/nats.go"
@@ -21,6 +23,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -459,7 +462,10 @@ func (ar *AgentRunner) DownloadPlugins() error {
 			if err != nil {
 				return err
 			}
-			err = downloaderImpl.Download()
+			err = downloaderImpl.Download(remote.WithPlatform(v1.Platform{
+				Architecture: runtime.GOARCH,
+				OS:           runtime.GOOS,
+			}))
 			if err != nil {
 				return err
 			}
