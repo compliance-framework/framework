@@ -1,11 +1,14 @@
 package event
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	natsserver "github.com/nats-io/nats-server/v2/test"
+	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,21 +34,27 @@ func TestBus(t *testing.T) {
 	s := natsserver.RunServer(&options)
 	defer s.Shutdown()
 
-	err = Connect(fmt.Sprintf("nats://localhost:%d", port))
+	nb := NewNatsBus(hclog.Default())
+
+	err = nb.Connect(fmt.Sprintf("nats://localhost:%d", port))
 	assert.NoError(t, err)
 
 	topic := "test"
 	msg := Message{Text: "Hello World"}
 
-	ch, err := Subscribe[Message](topic)
-	assert.NoError(t, err)
-	assert.NotNil(t, ch)
+	ch := make(chan Message)
 
-	err = Publish(msg, topic)
+	_, err = nb.conn.Subscribe(topic, func(m *nats.Msg) {
+		var msg Message
+		json.Unmarshal(m.Data, &msg)
+		ch <- msg
+	})
+
+	err = Publish(nb, msg, topic)
 	assert.NoError(t, err)
 
 	received := <-ch
 	assert.Equal(t, msg.Text, received.Text)
 
-	Close()
+	nb.Close()
 }

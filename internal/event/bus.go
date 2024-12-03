@@ -1,32 +1,33 @@
 package event
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
-	"log"
-	"sync"
-
 	"github.com/nats-io/nats.go"
+	"github.com/hashicorp/go-hclog"
+	"sync"
 )
 
 const NATS_RECONNECT_BUF_SIZE = 5*1024*1024
 
-type chanHolder struct {
-	Ch interface{}
+type NatsBus struct {
+	logger hclog.Logger
+
+	conn  *nats.Conn
+	mu    sync.Mutex
 }
 
-var (
-	conn  *nats.Conn
-	subCh []chanHolder
-	mu    sync.Mutex
-)
+func NewNatsBus(logger hclog.Logger) *NatsBus {
+	return &NatsBus{
+		logger: logger,
+	}
+}
 
-func Connect(server string) error {
-	mu.Lock()
-	defer mu.Unlock()
+func (nb *NatsBus) Connect(server string) error {
+	nb.mu.Lock()
+	defer nb.mu.Unlock()
 
-	if conn != nil {
+	if nb.conn != nil {
 		return errors.New("already connected")
 	}
 
@@ -34,49 +35,21 @@ func Connect(server string) error {
 	if err != nil {
 		return err
 	}
-	conn = c
-	subCh = make([]chanHolder, 0)
+	nb.conn = c
 
 	return nil
 }
 
-func Subscribe[T any](topic string) (chan T, error) {
-	ch := make(chan T)
-	_, err := conn.Subscribe(topic, func(m *nats.Msg) {
-		var msg T
-		decoder := json.NewDecoder(bytes.NewReader(m.Data))
-		decoder.DisallowUnknownFields()
-		err := decoder.Decode(&msg)
-		if err != nil {
-			log.Printf("Error unmarshalling message: %v", err)
-			return
-		}
-		ch <- msg
-	})
-	if err != nil {
-		return nil, err
-	}
-	mu.Lock()
-	subCh = append(subCh, chanHolder{Ch: ch})
-	mu.Unlock()
-
-	return ch, nil
-}
-
-func Publish[T any](msg T, topic string) error {
+// Not a method due to Golang limitations on generics there, so we just pass the bus as a parameter.
+func Publish[T any](nb *NatsBus, msg T, topic string) error {
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
-	log.Printf("Publishing message to %s: %s", topic, string(data))
-	return conn.Publish(topic, data)
+	nb.logger.Trace("Publishing message", "topic", topic, "data", string(data))
+	return nb.conn.Publish(topic, data)
 }
 
-func Close() {
-	conn.Close()
-	for _, holder := range subCh {
-		if ch, ok := holder.Ch.(chan interface{}); ok {
-			close(ch)
-		}
-	}
+func (nb *NatsBus) Close() {
+	nb.conn.Close()
 }

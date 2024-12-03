@@ -38,7 +38,7 @@ type agentPolicy string
 type agentPluginConfig map[string]string
 
 type agentPlugin struct {
-	AssessmentPlanIds []*string         `json:"assessmentPlanIds"`
+	AssessmentPlanIds []*string         `json:"assessment_plan_ids"`
 	Source            *string           `json:"source"`
 	Policies          []*agentPolicy    `json:"policy"`
 	Config            agentPluginConfig `json:"config"`
@@ -132,7 +132,6 @@ func mergeConfig(cmd *cobra.Command, fileConfig *viper.Viper) (*agentConfig, err
 
 	config := &agentConfig{}
 	err := fileConfig.Unmarshal(config)
-	log.Println("Merged config", "config", config.Plugins["local-ssh-security"])
 	if err != nil {
 		return nil, err
 	}
@@ -193,6 +192,7 @@ func agentRunner(cmd *cobra.Command, args []string) error {
 		logger: logger,
 		config: *config,
 
+		natsBus: event.NewNatsBus(logger),
 		pluginLocations: map[string]string{},
 	}
 
@@ -244,6 +244,7 @@ type AgentRunner struct {
 	mu sync.Mutex
 
 	config agentConfig
+	natsBus *event.NatsBus
 
 	pluginLocations map[string]string
 
@@ -253,12 +254,12 @@ type AgentRunner struct {
 func (ar *AgentRunner) Run() error {
 	ar.logger.Info("Starting agent", "daemon", ar.config.Daemon, "nats_uri", ar.config.Nats.Url)
 
-	err := event.Connect(ar.config.Nats.Url)
+	err := ar.natsBus.Connect(ar.config.Nats.Url)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer event.Close()
+	defer ar.natsBus.Close()
 
 	err = ar.DownloadPlugins()
 	if err != nil {
@@ -352,7 +353,7 @@ func (ar *AgentRunner) runInstance() error {
 		if err != nil {
 			for _, assessmentPlanId := range assessmentPlanIds {
 				result := runner.ErrorResult(assessmentPlanId, err)
-				if pubErr := event.Publish(result, "job.result"); pubErr != nil {
+				if pubErr := event.Publish(ar.natsBus, result, "job.result"); pubErr != nil {
 					logger.Error("Error publishing configure result", "error", pubErr)
 				}
 			}
@@ -363,7 +364,7 @@ func (ar *AgentRunner) runInstance() error {
 		if err != nil {
 			for _, assessmentPlanId := range assessmentPlanIds {
 				result := runner.ErrorResult(assessmentPlanId, err)
-				if pubErr := event.Publish(result, "job.result"); pubErr != nil {
+				if pubErr := event.Publish(ar.natsBus, result, "job.result"); pubErr != nil {
 					logger.Error("Error publishing evaslutae result", "error", pubErr)
 				}
 			}
@@ -378,7 +379,7 @@ func (ar *AgentRunner) runInstance() error {
 			if err != nil {
 				for _, assessmentPlanId := range assessmentPlanIds {
 					result := runner.ErrorResult(assessmentPlanId, err)
-					if pubErr := event.Publish(result, "job.result"); pubErr != nil {
+					if pubErr := event.Publish(ar.natsBus, result, "job.result"); pubErr != nil {
 						logger.Error("Error publishing evaslutae result", "error", pubErr)
 					}
 				}
@@ -402,7 +403,7 @@ func (ar *AgentRunner) runInstance() error {
 				}
 
 				// Publish findings to nats
-				if pubErr := event.Publish(result, "job.result"); pubErr != nil {
+				if pubErr := event.Publish(ar.natsBus, result, "job.result"); pubErr != nil {
 					logger.Error("Error publishing result", "error", pubErr)
 				}
 			}
