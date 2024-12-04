@@ -182,11 +182,6 @@ func agentRunner(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	for pluginName, pluginConfig := range config.Plugins {
-		fmt.Println(pluginName, pluginConfig.AssessmentPlanIds)
-	}
-	os.Exit(1)
-
 	logger := hclog.New(&hclog.LoggerOptions{
 		Name:   "agent",
 		Output: os.Stdout,
