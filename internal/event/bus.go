@@ -3,18 +3,18 @@ package event
 import (
 	"encoding/json"
 	"errors"
-	"github.com/nats-io/nats.go"
 	"github.com/hashicorp/go-hclog"
+	"github.com/nats-io/nats.go"
 	"sync"
 )
 
-const NATS_RECONNECT_BUF_SIZE = 5*1024*1024
+const NATS_RECONNECT_BUF_SIZE = 5 * 1024 * 1024
 
 type NatsBus struct {
 	logger hclog.Logger
 
-	conn  *nats.Conn
-	mu    sync.Mutex
+	conn *nats.Conn
+	mu   sync.Mutex
 }
 
 func NewNatsBus(logger hclog.Logger) *NatsBus {
