@@ -40,7 +40,7 @@ type agentPluginConfig map[string]string
 type agentPlugin struct {
 	AssessmentPlanIds []string          `mapstructure:"assessment-plan-ids"`
 	Source            string            `mapstructure:"source"`
-	Policies          []agentPolicy     `mapstructure:"policy"`
+	Policies          []agentPolicy     `mapstructure:"policies"`
 	Config            agentPluginConfig `mapstructure:"config"`
 }
 
