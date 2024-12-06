@@ -38,10 +38,10 @@ type agentPolicy string
 type agentPluginConfig map[string]string
 
 type agentPlugin struct {
-	AssessmentPlanIds []*string         `json:"assessment_plan_ids"`
-	Source            *string           `json:"source"`
-	Policies          []*agentPolicy    `json:"policy"`
-	Config            agentPluginConfig `json:"config"`
+	AssessmentPlanIds []string          `mapstructure:"assessment-plan-ids"`
+	Source            string            `mapstructure:"source"`
+	Policies          []agentPolicy     `mapstructure:"policies"`
+	Config            agentPluginConfig `mapstructure:"config"`
 }
 
 type agentConfig struct {
@@ -192,7 +192,7 @@ func agentRunner(cmd *cobra.Command, args []string) error {
 		logger: logger,
 		config: *config,
 
-		natsBus: event.NewNatsBus(logger),
+		natsBus:         event.NewNatsBus(logger),
 		pluginLocations: map[string]string{},
 	}
 
@@ -243,7 +243,7 @@ type AgentRunner struct {
 
 	mu sync.Mutex
 
-	config agentConfig
+	config  agentConfig
 	natsBus *event.NatsBus
 
 	pluginLocations map[string]string
@@ -322,11 +322,11 @@ func (ar *AgentRunner) runInstance() error {
 			Level:  hclog.Level(ar.config.logVerbosity()),
 		})
 
-		source := ar.pluginLocations[*pluginConfig.Source]
+		source := ar.pluginLocations[pluginConfig.Source]
 
 		assessmentPlanIds := []string{}
 		for _, assessmentPlanId := range pluginConfig.AssessmentPlanIds {
-			planIdObject, err := primitive.ObjectIDFromHex(*assessmentPlanId)
+			planIdObject, err := primitive.ObjectIDFromHex(assessmentPlanId)
 			if err != nil {
 				return err
 			}
@@ -373,7 +373,7 @@ func (ar *AgentRunner) runInstance() error {
 
 		for _, inputBundle := range pluginConfig.Policies {
 			res, err := runnerInstance.Eval(&proto.EvalRequest{
-				BundlePath: string(*inputBundle),
+				BundlePath: string(inputBundle),
 			})
 
 			if err != nil {
@@ -456,7 +456,7 @@ func (ar *AgentRunner) DownloadPlugins() error {
 	pluginSources := map[string]struct{}{}
 
 	for _, pluginConfig := range ar.config.Plugins {
-		pluginSources[*pluginConfig.Source] = struct{}{}
+		pluginSources[pluginConfig.Source] = struct{}{}
 	}
 
 	for source := range pluginSources {

@@ -3,13 +3,13 @@ package runner
 import "github.com/chris-cmsoft/concom/runner/proto"
 
 type Result struct {
-	Status       proto.ExecutionStatus   `json:"status"`
-	AssessmentId string                  `json:"assessmentId"`
-	Error        error                   `json:"error"`
-	Observations []*proto.Observation    `json:"observations"`
-	Findings     []*proto.Finding        `json:"findings"`
-	Risks        []*proto.Risk           `json:"risks"`
-	Logs         []*proto.LogEntry       `json:"logs"`
+	Status       proto.ExecutionStatus `json:"status"`
+	AssessmentId string                `json:"assessmentId"`
+	Error        error                 `json:"error"`
+	Observations []*proto.Observation  `json:"observations"`
+	Findings     []*proto.Finding      `json:"findings"`
+	Risks        []*proto.Risk         `json:"risks"`
+	Logs         []*proto.LogEntry     `json:"logs"`
 }
 
 func ErrorResult(assessmentId string, err error) *Result {
