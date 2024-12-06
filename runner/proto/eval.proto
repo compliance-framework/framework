@@ -1,6 +1,3 @@
-// Copyright (c) HashiCorp, Inc.
-// SPDX-License-Identifier: MPL-2.0
-
 syntax = "proto3";
 package proto;
 option go_package = "./proto";
@@ -30,41 +27,6 @@ message LogEntry {
   string Remarks = 5;
   repeated Property Props = 6;
   repeated Link Links = 7;
-}
-
-message Expression {
-  string Key = 1;
-  string Operator = 2;
-  repeated string Values = 3;
-}
-
-message Selector {
-  string Query = 1;
-  map<string, string> Labels = 2;
-  repeated Expression Expressions = 3;
-  repeated string Ids = 4;
-}
-
-enum SubjectType {
-  COMPONENT = 0;
-  INVENTORY_ITEM = 1;
-  LOCATION = 2;
-  PARTY = 3;
-  USER = 4;
-}
-
-message Subject {
-  string Id = 1;
-  SubjectType Type = 2;
-  string Title = 3;
-  string Description = 4;
-  repeated Link Links = 5;
-  map<string, string> Props = 6;
-  string Remarks = 7;
-}
-
-message SubjectList {
-  repeated Subject Subjects = 1;
 }
 
 message Evidence {
@@ -109,50 +71,6 @@ message Risk {
   repeated Link Links = 8;
 }
 
-message Plan {
-  string Id = 1;
-  string ComponentId = 2;
-  string ControlId = 3;
-  string TaskId = 4;
-  string ActivityId = 5;
-}
-
-/**
- * EvaluateInput holds the information about the assessment plan
- * and the selector to use to find the subjects to assess.
- */
-message EvaluateInput {
-  Plan Plan = 1;
-  Selector Selector = 2;
-
-  // Configuration is a map of configuration values that are passed to the provider
-  // It is similar to the `provider.configuration` section in the yaml file
-  map<string, string> Configuration = 3;
-}
-
-message EvaluateResult {
-  repeated Subject Subjects = 1;
-  repeated LogEntry Logs = 2;
-
-  // Props is a temporary storage that the provider developer can use to pass information between
-  // the Evaluate and Execute methods.
-  // The information here is passed to the Props field of the ExecuteInput message.
-  map<string, string> Props = 3;
-}
-
-/**
- * ExecuteInput is the input to a job.
- */
-message ExecuteInput {
-  Plan Plan = 1;
-  Subject Subject = 2;
-  map<string, string> Props = 3;
-
-  // Configuration is a map of configuration values that are passed to the provider
-  // Same as the EvaluateInput.Configuration
-  map<string, string> Configuration = 4;
-}
-
 enum ExecutionStatus {
   SUCCESS = 0;
   FAILURE = 1;
@@ -163,7 +81,7 @@ message EvalRequest {
 }
 
 /**
- * ExecuteResult is the result of an assessment check
+ * EvalResponse is the result of an assessment check
  * We don't use the Plan information here as it can be provided by the runtime
  */
 message EvalResponse {

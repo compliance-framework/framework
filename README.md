@@ -50,7 +50,7 @@ nats:
 plugins:
   <plugin_identifier>:  # Can have as many of these as you like
     source: <plugin_source>
-    assessment_plan_ids: 
+    assessment-plan-ids:
       - <assessment_plan_id>
       - <assessment_plan_id>
     policies:
