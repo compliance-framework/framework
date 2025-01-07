@@ -1,0 +1,14 @@
+daemon: false
+verbosity: 2
+
+nats:
+  url: nats://127.0.0.1:4222
+
+plugins:
+  plugin-os-ubuntu:
+    source: ghcr.io/compliance-framework/plugin-os-ubuntu:0.0.2
+    policies:
+#      - /Users/chris/projects/compliance-framework/plugin-local-ssh-policies/dist/bundle-wrong.tar.gz
+      - /Users/harrylincoln/cs-internal/plugin-os-ubuntu-policies/dist/bundle.tar.gz
+    assessment-plan-ids:
+      - 675c415e1bef9f6936adb9b8

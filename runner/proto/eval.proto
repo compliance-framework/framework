@@ -47,6 +47,7 @@ message Finding {
   string SubjectId = 7;
   repeated string RelatedObservations = 8;
   repeated string RelatedRisks = 9;
+  string Status = 10;
 }
 
 message Observation {
