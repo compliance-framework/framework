@@ -37,6 +37,13 @@ message Evidence {
   string Remarks = 5;
 }
 
+enum FindingStatus {
+    UNKNOWN = 0; // Default value
+    OPEN = 1; 
+    MITIGATED = 2;
+    RESOLVED = 3;
+}
+
 message Finding {
   string Id = 1;
   string Title = 2;
@@ -47,7 +54,7 @@ message Finding {
   string SubjectId = 7;
   repeated string RelatedObservations = 8;
   repeated string RelatedRisks = 9;
-  string Status = 10;
+  FindingStatus Status = 10;
 }
 
 message Observation {
