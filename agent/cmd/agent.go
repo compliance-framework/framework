@@ -13,6 +13,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/compliance-framework/agent/internal/event"
+	"github.com/google/uuid"
+
 	"github.com/compliance-framework/agent/internal"
 	"github.com/compliance-framework/agent/internal/event"
 	"github.com/compliance-framework/agent/runner"
@@ -453,6 +456,9 @@ func (ar *AgentRunner) runInstance() error {
 				Risks:        &res.Risks,
 				Logs:         &res.Logs,
 				Labels:       resultLabels,
+				// TODO Use scheduler time here, rather than loop time. This is intentionally left at 1 minute for now. Once cron scheduling is in, we should change it.
+				// This TODO mainly serves as a signal to increase chances of not missing the update later
+				Expires: time.Now().Add(1 * time.Minute).Add(24 * time.Hour),
 			}
 
 			// Publish findings to nats
