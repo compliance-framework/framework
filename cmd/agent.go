@@ -1,9 +1,8 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
-	"github.com/compliance-framework/agent/internal/event"
-	"github.com/google/uuid"
 	"log"
 	"os"
 	"os/exec"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"github.com/compliance-framework/agent/internal"
+	"github.com/compliance-framework/agent/internal/event"
 	"github.com/compliance-framework/agent/runner"
 	"github.com/compliance-framework/agent/runner/proto"
 	"github.com/compliance-framework/gooci/pkg/oci"
@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/uuid"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/open-policy-agent/opa/rego"
@@ -195,6 +196,7 @@ func agentRunner(cmd *cobra.Command, args []string) error {
 		config:          *config,
 		natsBus:         event.NewNatsBus(logger),
 		pluginLocations: map[string]string{},
+		policyLocations: map[string]string{},
 	}
 
 	v.OnConfigChange(func(in fsnotify.Event) {
@@ -248,8 +250,10 @@ type AgentRunner struct {
 	natsBus *event.NatsBus
 
 	pluginLocations map[string]string
-
 	policyLocations map[string]string
+
+	setupPluginTask   *internal.Task
+	setupPoliciesTask *internal.Task
 
 	queryBundles []*rego.Rego
 }
@@ -407,10 +411,21 @@ func (ar *AgentRunner) runInstance() error {
 				return err
 			}
 
-			fmt.Println("Output from runner:")
-			fmt.Println("Findings:", res.Findings)
-			fmt.Println("Observations:", res.Observations)
-			fmt.Println("Log Entries:", res.Logs)
+			logger.Debug("Obtained results from running plugin", "res", res)
+
+			findings := []*proto.Finding{}
+
+			setupTasks := []*proto.Task{
+				ar.setupPluginTask.ToProtoStep(),
+				ar.setupPoliciesTask.ToProtoStep(),
+			}
+
+			for _, finding := range res.Findings {
+				tasks := setupTasks
+				tasks = append(tasks, finding.Tasks...)
+				finding.Tasks = tasks
+				findings = append(findings, finding)
+			}
 
 			result := runner.Result{
 				Title:        res.Title,
@@ -418,7 +433,7 @@ func (ar *AgentRunner) runInstance() error {
 				StreamID:     streamId.String(),
 				Error:        err,
 				Observations: &res.Observations,
-				Findings:     &res.Findings,
+				Findings:     &findings,
 				Risks:        &res.Risks,
 				Logs:         &res.Logs,
 				Labels:       resultLabels,
@@ -473,7 +488,16 @@ func (ar *AgentRunner) getRunnerInstance(logger hclog.Logger, path string) (runn
 // We return any errors that occurred during the download process. TODO: What is the right
 // error handling here?
 func (ar *AgentRunner) DownloadPlugins() error {
-	ar.pluginLocations = make(map[string]string)
+	// Add a task to indicate we've downloaded the items
+	task := &internal.Task{
+		Title:       "Download plugins",
+		Description: "Downloading plugins required to run concom agent",
+		SubjectId:   "",
+		Activities:  []internal.Activity{},
+	}
+	defer func() {
+		ar.setupPluginTask = task
+	}()
 
 	// Build a set of unique plugin sources
 	pluginSources := map[string]struct{}{}
@@ -483,69 +507,31 @@ func (ar *AgentRunner) DownloadPlugins() error {
 	}
 
 	for source := range pluginSources {
-		ar.logger.Trace("Checking for plugin source", "source", source)
+		location, activity, err := ar.downloadItem("plugins", source, AgentPluginDir, true)
 
-		// First we check if the source is a path that exists on the fs.
-		// If it does exist, it means we've been passed a binary, and we can just use it as is.
-		_, err := os.ReadFile(source)
-
-		if err == nil {
-			// The file exists. Just return it.
-			ar.logger.Debug("Found plugin locally, using local binary", "Binary", source)
-			// The file exists locally, so we use the local binary path.
-			ar.pluginLocations[source] = source
-			continue
-		}
-
-		if !os.IsNotExist(err) {
-			// The error we've received is something other than not exists.
-			// Exit early with the error
+		if err != nil {
 			return err
 		}
 
-		if internal.IsOCI(source) {
-			ar.logger.Debug("Plugin looks like an OCI endpoint, attempting to download", "Source", source)
-			tag, err := name.NewTag(source)
-			if err != nil {
-				return err
-			}
+		task.AddActivity(activity)
 
-			destination := path.Join(AgentPluginDir, tag.RepositoryStr(), tag.Identifier())
-
-			downloaderImpl, err := oci.NewDownloader(
-				tag,
-				destination,
-			)
-			if err != nil {
-				return err
-			}
-			err = downloaderImpl.Download(remote.WithPlatform(v1.Platform{
-				Architecture: runtime.GOARCH,
-				OS:           runtime.GOOS,
-			}))
-			if err != nil {
-				return err
-			}
-			pluginBinary := path.Join(destination, "plugin")
-			ar.logger.Debug("Plugin downloaded successfully", "Destination", pluginBinary)
-
-			if ar.pluginLocations == nil {
-				ar.pluginLocations = map[string]string{}
-			}
-			// Update the source in the agent configuration to the new path
-			ar.pluginLocations[source] = pluginBinary
-		} else {
-			ar.logger.Debug("Attempting to download artifact (TODO)", "Source", source)
-
-			// TODO We should download artifacts too
-		}
+		ar.pluginLocations[source] = location
 	}
 
 	return nil
 }
 
 func (ar *AgentRunner) DownloadPolicies() error {
-	ar.policyLocations = make(map[string]string)
+	// Add a task to indicate we've downloaded the items
+	task := &internal.Task{
+		Title:       "Download policies",
+		Description: "Downloading policies required to run concom agent",
+		SubjectId:   "",
+		Activities:  []internal.Activity{},
+	}
+	defer func() {
+		ar.setupPoliciesTask = task
+	}()
 
 	// Build a set of unique policy sources
 	policySources := map[string]struct{}{}
@@ -557,66 +543,138 @@ func (ar *AgentRunner) DownloadPolicies() error {
 	}
 
 	for source := range policySources {
-		ar.logger.Trace("Checking for policy source", "source", source)
+		location, activity, err := ar.downloadItem("policies", source, AgentPolicyDir, false)
 
-		// First we check if the source is a path that exists on the fs.
-		// If it does exist, it means we've been passed a binary, and we can just use it as is.
-		_, err := os.ReadFile(source)
-
-		if err == nil {
-			// The file exists. Just return it.
-			ar.logger.Debug("Found policy locally, using local file", "File", source)
-			// The file exists locally, so we use the local binary path.
-			ar.policyLocations[source] = source
-			continue
-		}
-
-		if !os.IsNotExist(err) {
-			// The error we've received is something other than not exists.
-			// Exit early with the error
+		if err != nil {
 			return err
 		}
 
-		if internal.IsOCI(source) {
-			ar.logger.Debug("Policy looks like an OCI endpoint, attempting to download", "Source", source)
-			tag, err := name.NewTag(source)
-			if err != nil {
-				return err
-			}
+		task.AddActivity(activity)
 
-			destination := path.Join(AgentPolicyDir, tag.RepositoryStr(), tag.Identifier())
-			policiesDir := path.Join(destination, "policies")
-			if err := os.MkdirAll(policiesDir, 0755); err != nil {
-				return err
-			}
-
-			downloaderImpl, err := oci.NewDownloader(
-				tag,
-				destination,
-			)
-			if err != nil {
-				return err
-			}
-			err = downloaderImpl.Download()
-			if err != nil {
-				return err
-			}
-			policyFile := policiesDir // Ensure the specific policy file name is used
-			ar.logger.Debug("Policy downloaded successfully", "Destination", policyFile)
-
-			if ar.policyLocations == nil {
-				ar.policyLocations = map[string]string{}
-			}
-			// Update the source in the agent configuration to the new path
-			ar.policyLocations[source] = policyFile
-		} else {
-			ar.logger.Debug("Attempting to download artifact (TODO)", "Source", source)
-
-			// TODO We should download artifacts too
-		}
+		ar.policyLocations[source] = location
 	}
 
 	return nil
+}
+
+// Checks each item specified and retrieves the source.
+// It checks if the source is a path that exists on the filesystem first, if it is then it just
+// uses that, if it isn't it will attempt to download the plugin to the filesystem.
+//
+// We also update the map of plugin sources, this could be an identity map if it's a local
+// file or maps from the URL to the local file if we downloaded a remote file.
+//
+// We return the following:
+// * A map of the source to the local file path
+// * Errors that occurred during the download process. TODO: What is the right error handling here?
+func (ar *AgentRunner) downloadItem(
+	type_ string,
+	source string,
+	outDirPrefix string,
+	isArchDependent bool,
+) (string, internal.Activity, error) {
+	location := ""
+	activity := internal.Activity{
+		Title:       "Downloading " + type_,
+		SubjectId:   "",
+		Description: "Downloading " + type_ + " from " + source,
+		Type:        type_,
+		Steps:       []internal.Step{},
+		Tools:       []string{"agent"},
+	}
+
+	ar.logger.Trace("Checking for source", "type", type_, "source", source)
+
+	// First we check if the source is a path that exists on the fs, if so we just use that.
+	_, err := os.ReadFile(source)
+
+	if err == nil {
+		// The file exists. Just return it.
+		ar.logger.Debug("Found source locally, using local file", "type", type_, "File", source)
+
+		activity.AddStep(internal.Step{
+			Title:       "Plugin found locally",
+			SubjectId:   "",
+			Description: fmt.Sprintf("Plugin found locally at %s", source),
+		})
+
+		// The file exists locally, so we use the local path.
+		return source, activity, nil
+	}
+
+	// The error we've received is something other than not exists.
+	// Exit early with the error
+	if !os.IsNotExist(err) {
+		activity.AddStep(internal.Step{
+			Title:       "Plugin error",
+			SubjectId:   "",
+			Description: fmt.Sprintf("Error finding plugin on filesystem: '%v'", err),
+		})
+
+		return location, activity, err
+	}
+
+	if internal.IsOCI(source) {
+		ar.logger.Debug("Source looks like an OCI endpoint, attempting to download", "type", type_, "Source", source)
+		tag, err := name.NewTag(source)
+		if err != nil {
+			return location, activity, err
+		}
+
+		outDir := path.Join(outDirPrefix, tag.RepositoryStr(), tag.Identifier())
+
+		activity.AddStep(internal.Step{
+			Title:       "Plugin OCI endpoint found",
+			SubjectId:   "",
+			Description: fmt.Sprintf("Plugin found OCI endpoint %s", source),
+		})
+
+		downloaderImpl, err := oci.NewDownloader(
+			tag,
+			outDir,
+		)
+		if err != nil {
+			return location, activity, err
+		}
+		if isArchDependent {
+			err = downloaderImpl.Download(remote.WithPlatform(v1.Platform{
+				Architecture: runtime.GOARCH,
+				OS:           runtime.GOOS,
+			}))
+		} else {
+			err = downloaderImpl.Download()
+		}
+		if err != nil {
+			return location, activity, err
+		}
+
+		location := outDir
+		if type_ == "plugins" {
+			location = path.Join(outDir, "plugin")
+		} else if type_ == "policies" {
+			location = path.Join(outDir, "policies")
+		}
+
+		activity.AddStep(internal.Step{
+			Title:       "Downloaded Plugin",
+			SubjectId:   "",
+			Description: fmt.Sprintf("Downloaded plugin to destination %s", location),
+		})
+
+		ar.logger.Debug("Source downloaded successfully", "type", type_, "Destination", outDir)
+		// Update the source in the agent configuration to the new path
+		return location, activity, nil
+	} else {
+		ar.logger.Debug("Attempting to download artifact (TODO)", "Source", source)
+
+		activity.AddStep(internal.Step{
+			Title:       "Plugin error",
+			SubjectId:   "",
+			Description: "Downloading artifacts is not yet implemented",
+		})
+
+		return location, activity, errors.New("Downloading artifacts is not yet implemented")
+	}
 }
 
 func (ar *AgentRunner) closePluginClients() {

@@ -6,13 +6,11 @@ import (
 	"strings"
 )
 
-type Violation map[string]interface{}
-
-func (v Violation) GetString(key string, defaultString string) string {
-	if _, value := v[key]; value {
-		return v[key].(string)
-	}
-	return defaultString
+type Violation struct {
+	Title       string   `json:"title" mapstructure:"title"`
+	Description string   `json:"description" mapstructure:"description"`
+	Remarks     string   `json:"remarks" mapstructure:"remarks"`
+	Controls    []string `json:"control-implementations" mapstructure:"control-implementations"`
 }
 
 type Package string
@@ -27,10 +25,40 @@ type Policy struct {
 	Annotations []*ast.Annotations
 }
 
+type Step struct {
+	Title       string `json:"title" mapstructure:"title"`
+	Description string `json:"description" mapstructure:"description"`
+}
+
+type Activity struct {
+	Title       string   `json:"title" mapstructure:"title"`
+	Description string   `json:"description" mapstructure:"description"`
+	Type        string   `json:"type" mapstructure:"type"`
+	Steps       []Step   `json:"steps" mapstructure:"steps"`
+	Tools       []string `json:"tools" mapstructure:"tools"`
+}
+
+type Task struct {
+	Title       string     `json:"title" mapstructure:"title"`
+	Description string     `json:"description" mapstructure:"description"`
+	Activities  []Activity `json:"activities" mapstructure:"activities"`
+}
+
+type Link struct {
+	Text string `json:"text" mapstructure:"text"`
+	URL  string `json:"href" mapstructure:"href"`
+}
+
+type Risk struct {
+	Title       string `json:"title" mapstructure:"title"`
+	Description string `json:"description" mapstructure:"description"`
+	Statement   string `json:"statement" mapstructure:"statement"`
+	Links       []Link `json:"links" mapstructure:"links"`
+}
+
 type Result struct {
-	Policy              Policy
-	AdditionalVariables map[string]interface{}
-	Violations          []Violation
+	Policy Policy
+	*EvalOutput
 }
 
 func (res Result) String() string {
@@ -41,5 +69,7 @@ Policy:
 	annotations: %s
 AdditionalVariables: %v
 Violations: %s
-`, res.Policy.File, res.Policy.Package.PurePackage(), res.Policy.Annotations, res.AdditionalVariables, res.Violations)
+Tasks: %v
+Risks: %v
+`, res.Policy.File, res.Policy.Package.PurePackage(), res.Policy.Annotations, res.AdditionalVariables, res.Violations, res.Tasks, res.Risks)
 }

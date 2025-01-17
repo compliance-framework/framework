@@ -3,11 +3,19 @@ package policy_manager
 import (
 	"context"
 	"fmt"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/hashicorp/go-hclog"
 	"github.com/open-policy-agent/opa/rego"
 	"slices"
 	"strings"
 )
+
+type EvalOutput struct {
+	Risks               []Risk      `mapstructure:"risks"`
+	Tasks               []Task      `mapstructure:"tasks"`
+	Violations          []Violation `mapstructure:"violation"`
+	AdditionalVariables map[string]interface{}
+}
 
 type PolicyManager struct {
 	logger        hclog.Logger
@@ -26,6 +34,7 @@ func New(ctx context.Context, logger hclog.Logger, bundlePath string) *PolicyMan
 func (pm *PolicyManager) Execute(ctx context.Context, pluginNamespace string, input map[string]interface{}) ([]Result, error) {
 	var output []Result
 
+	pm.logger.Debug("Executing policy", "input", input)
 	regoArgs := []func(r *rego.Rego){
 		rego.Query("data.compliance_framework"),
 		rego.Package(fmt.Sprintf("compliance_framework.%s", pluginNamespace)),
@@ -50,8 +59,6 @@ func (pm *PolicyManager) Execute(ctx context.Context, pluginNamespace string, in
 				Package:     Package(module.Package.Path.String()),
 				Annotations: module.Annotations,
 			},
-			AdditionalVariables: map[string]interface{}{},
-			Violations:          nil,
 		}
 
 		regoArgs := []func(r *rego.Rego){
@@ -72,16 +79,22 @@ func (pm *PolicyManager) Execute(ctx context.Context, pluginNamespace string, in
 			for _, expression := range eval.Expressions {
 				moduleOutputs := expression.Value.(map[string]interface{})
 
+				evalOutput := &EvalOutput{
+					AdditionalVariables: map[string]interface{}{},
+				}
+				err := mapstructure.Decode(expression.Value.(map[string]interface{}), evalOutput)
+				if err != nil {
+					panic(err)
+				}
+
+				// TODO here we could run evalOutput.Validate()
 				for key, value := range moduleOutputs {
-					if !slices.Contains([]string{"violation"}, key) {
-						result.AdditionalVariables[key] = value
+					if !slices.Contains([]string{"violation", "activities", "risks"}, key) {
+						evalOutput.AdditionalVariables[key] = value
 					}
 				}
 
-				for _, tester := range moduleOutputs["violation"].([]interface{}) {
-					result.Violations = append(result.Violations, tester.(map[string]interface{}))
-				}
-
+				result.EvalOutput = evalOutput
 			}
 		}
 		output = append(output, result)

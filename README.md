@@ -78,3 +78,12 @@ or even simpler:
 ```shell
 go run main.go agent --config PATH_TO_CONFIG_FILE
 ```
+
+# Development
+
+## Generating Protobufs
+
+You'll need the `buf` cli installed. See installation instructions: https://buf.build/docs/installation/
+
+```shell
+make proto-gen

@@ -3,9 +3,10 @@ module github.com/compliance-framework/agent
 go 1.23.2
 
 require (
-	github.com/compliance-framework/gooci v0.0.0-20241202153413-08c411c3ce33
+	github.com/compliance-framework/gooci v0.0.0-20250113172942-411c6f0468f0
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/fsnotify/fsnotify v1.7.0
+	github.com/go-viper/mapstructure/v2 v2.2.1
 	github.com/google/go-containerregistry v0.20.2
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-hclog v1.5.0
