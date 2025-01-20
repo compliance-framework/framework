@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/compliance-framework/framework/agent/internal"
-	"github.com/compliance-framework/framework/agent/internal/event"
 	"github.com/compliance-framework/framework/agent/runner"
 	"github.com/compliance-framework/framework/agent/runner/proto"
+	"github.com/compliance-framework/framework/internal"
+	"github.com/compliance-framework/framework/internal/event"
 	"github.com/compliance-framework/gooci/pkg/oci"
 	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/fsnotify/fsnotify"
@@ -266,7 +266,7 @@ func (ar *AgentRunner) Run() error {
 		err := ar.natsBus.Connect(ar.config.Nats.Url)
 		if err == nil {
 			log.Println("Connected to NATS successfully.")
-			return nil
+			break
 		}
 
 		// If we haven't reached the max attempts, wait and try again

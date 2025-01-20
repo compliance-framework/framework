@@ -9,3 +9,8 @@ __debug_*
 
 # Temporary directory for air builds https://github.com/air-verse/air
 /tmp
+
+# Agent configurations
+data/
+dist/
+.compliance-framework/
