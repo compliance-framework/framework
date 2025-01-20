@@ -1,0 +1,125 @@
+syntax = "proto3";
+package proto;
+option go_package = "./proto";
+
+message Property {
+  string Name = 1;
+  string Value = 2;
+}
+
+message Link {
+  string Href = 1;
+  string MediaType = 2;
+  string Rel = 3;
+  string ResourceFragment = 4;
+  string Text = 5;
+}
+
+// LogEntry represents a record in an assessment log that documents a specific
+// event or action during the assessment. A log entry can contain various
+// information, including observations or findings, but it's essentially a
+// chronological record.
+message LogEntry {
+  string Title = 1;
+  string Description = 2;
+  string Start = 3;
+  string End = 4;
+  string Remarks = 5;
+  repeated Property Props = 6;
+  repeated Link Links = 7;
+}
+
+message Evidence {
+  string Title = 1;
+  string Description = 2;
+  repeated Property Props = 3;
+  repeated Link Links = 4;
+  string Remarks = 5;
+}
+
+enum FindingStatus {
+    UNKNOWN = 0; // Default value
+    OPEN = 1;
+    MITIGATED = 2;
+    RESOLVED = 3;
+}
+
+message Finding {
+  string Id = 1;
+  string SubjectId = 2;
+  string Title = 3;
+  string Description = 4;
+  string Status = 5;
+  string Remarks = 6;
+  repeated Property Props = 7;
+  repeated Link Links = 8;
+  repeated Task Tasks = 9;
+  repeated string RelatedObservations = 10;
+  repeated string RelatedRisks = 11;
+}
+
+message Observation {
+  string Id = 1;
+  string SubjectId = 2;
+  string Collected = 3;
+  string Title = 4;
+  string Description = 5;
+  string Expires = 6;
+  string Remarks = 7;
+  repeated Property Props = 9;
+  repeated Link Links = 8;
+  repeated Evidence RelevantEvidence = 10;
+}
+
+message Step {
+  string Title = 1;
+  string SubjectId = 2;
+  string Description = 3;
+}
+
+message Task {
+  string Title = 1;
+  string SubjectId = 2;
+  string Description = 3;
+  repeated Activity Activities = 4;
+}
+
+message Activity {
+  string Title = 1;
+  string SubjectId = 2;
+  string Description = 3;
+  string Type = 4;
+  repeated Step Steps = 5;
+  repeated string Tools = 6;
+}
+
+message Risk {
+  string Title = 1;
+  string SubjectId = 2;
+  string Description = 3;
+  string Statement = 4;
+  repeated Property Props = 5;
+  repeated Link Links = 6;
+}
+
+enum ExecutionStatus {
+  SUCCESS = 0;
+  FAILURE = 1;
+}
+
+message EvalRequest {
+  string bundlePath = 1;
+}
+
+/**
+ * EvalResponse is the result of an assessment check
+ * We don't use the Plan information here as it can be provided by the runtime
+ */
+message EvalResponse {
+  ExecutionStatus Status = 1;
+  string Title = 2;
+  repeated Observation Observations = 3;
+  repeated Finding Findings = 4;
+  repeated Risk Risks = 5;
+  repeated LogEntry Logs = 6;
+}

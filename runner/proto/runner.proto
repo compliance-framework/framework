@@ -1,0 +1,27 @@
+syntax = "proto3";
+package proto;
+option go_package = "./proto";
+
+import "runner/proto/eval.proto";
+
+message Empty {}
+
+message ConfigureRequest {
+  map<string, string> config = 1;
+}
+
+message ConfigureResponse {
+  bytes value = 1;
+}
+
+message PrepareForEvalRequest {}
+
+message PrepareForEvalResponse {
+  bytes value = 1;
+}
+
+service Runner {
+  rpc Configure(ConfigureRequest) returns (ConfigureResponse);
+  rpc PrepareForEval(PrepareForEvalRequest) returns (PrepareForEvalResponse);
+  rpc Eval(proto.EvalRequest) returns (proto.EvalResponse);
+}
