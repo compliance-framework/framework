@@ -122,4 +122,5 @@ message EvalResponse {
   repeated Finding Findings = 4;
   repeated Risk Risks = 5;
   repeated LogEntry Logs = 6;
+  string Expires = 7;
 }

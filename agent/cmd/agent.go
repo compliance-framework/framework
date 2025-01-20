@@ -3,6 +3,8 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"github.com/compliance-framework/agent/internal/event"
+	"github.com/google/uuid"
 	"log"
 	"os"
 	"os/exec"
@@ -14,7 +16,6 @@ import (
 	"time"
 
 	"github.com/compliance-framework/agent/internal"
-	"github.com/compliance-framework/agent/internal/event"
 	"github.com/compliance-framework/agent/runner"
 	"github.com/compliance-framework/agent/runner/proto"
 	"github.com/compliance-framework/gooci/pkg/oci"
@@ -23,7 +24,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/uuid"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/open-policy-agent/opa/rego"
@@ -261,26 +261,26 @@ type AgentRunner struct {
 func (ar *AgentRunner) Run() error {
 	ar.logger.Info("Starting agent", "daemon", ar.config.Daemon, "nats_uri", ar.config.Nats.Url)
 
-    const maxRetries = 10
-    for i := 1; i <= maxRetries; i++ {
-        err := ar.natsBus.Connect(ar.config.Nats.Url)
-        if err == nil {
-            log.Println("Connected to NATS successfully.")
-            return nil
-        }
+	const maxRetries = 10
+	for i := 1; i <= maxRetries; i++ {
+		err := ar.natsBus.Connect(ar.config.Nats.Url)
+		if err == nil {
+			log.Println("Connected to NATS successfully.")
+			return nil
+		}
 
-        // If we haven't reached the max attempts, wait and try again
-        if i < maxRetries {
-            log.Printf("Attempt %d/%d: Error connecting to NATS: %v. Retrying in 5 seconds...\n",
-                i, maxRetries, err)
-            time.Sleep(5 * time.Second)
-        } else {
-            // We've reached the maximum number of retries
-            log.Printf("Attempt %d/%d: Error connecting to NATS: %v. Giving up.\n",
-                i, maxRetries, err)
-            return err
-        }
-    }
+		// If we haven't reached the max attempts, wait and try again
+		if i < maxRetries {
+			log.Printf("Attempt %d/%d: Error connecting to NATS: %v. Retrying in 5 seconds...\n",
+				i, maxRetries, err)
+			time.Sleep(5 * time.Second)
+		} else {
+			// We've reached the maximum number of retries
+			log.Printf("Attempt %d/%d: Error connecting to NATS: %v. Giving up.\n",
+				i, maxRetries, err)
+			return err
+		}
+	}
 
 	defer ar.natsBus.Close()
 
@@ -453,6 +453,9 @@ func (ar *AgentRunner) runInstance() error {
 				Risks:        &res.Risks,
 				Logs:         &res.Logs,
 				Labels:       resultLabels,
+				// TODO Use scheduler time here, rather than loop time. This is intentionally left at 1 minute for now. Once cron scheduling is in, we should change it.
+				// This TODO mainly serves as a signal to increase chances of not missing the update later
+				Expires: time.Now().Add(1 * time.Minute).Add(24 * time.Hour),
 			}
 
 			// Publish findings to nats
