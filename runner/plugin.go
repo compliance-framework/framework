@@ -2,15 +2,15 @@ package runner
 
 import (
 	"context"
-	"github.com/compliance-framework/framework/agent/runner/proto"
+	proto2 "github.com/compliance-framework/framework/runner/proto"
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 )
 
 type Runner interface {
-	Configure(request *proto.ConfigureRequest) (*proto.ConfigureResponse, error)
-	PrepareForEval(request *proto.PrepareForEvalRequest) (*proto.PrepareForEvalResponse, error)
-	Eval(request *proto.EvalRequest) (*proto.EvalResponse, error)
+	Configure(request *proto2.ConfigureRequest) (*proto2.ConfigureResponse, error)
+	PrepareForEval(request *proto2.PrepareForEvalRequest) (*proto2.PrepareForEvalResponse, error)
+	Eval(request *proto2.EvalRequest) (*proto2.EvalResponse, error)
 }
 
 type RunnerGRPCPlugin struct {
@@ -21,12 +21,12 @@ type RunnerGRPCPlugin struct {
 }
 
 func (p *RunnerGRPCPlugin) GRPCServer(broker *plugin.GRPCBroker, s *grpc.Server) error {
-	proto.RegisterRunnerServer(s, &GRPCServer{Impl: p.Impl})
+	proto2.RegisterRunnerServer(s, &GRPCServer{Impl: p.Impl})
 	return nil
 }
 
 func (p *RunnerGRPCPlugin) GRPCClient(ctx context.Context, broker *plugin.GRPCBroker, c *grpc.ClientConn) (interface{}, error) {
-	return &GRPCClient{client: proto.NewRunnerClient(c)}, nil
+	return &GRPCClient{client: proto2.NewRunnerClient(c)}, nil
 }
 
 var HandshakeConfig = plugin.HandshakeConfig{

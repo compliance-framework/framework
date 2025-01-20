@@ -3,6 +3,8 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	runner2 "github.com/compliance-framework/framework/runner"
+	proto2 "github.com/compliance-framework/framework/runner/proto"
 	"log"
 	"os"
 	"os/exec"
@@ -13,8 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/compliance-framework/framework/agent/runner"
-	"github.com/compliance-framework/framework/agent/runner/proto"
 	"github.com/compliance-framework/framework/internal"
 	"github.com/compliance-framework/framework/internal/event"
 	"github.com/compliance-framework/gooci/pkg/oci"
@@ -366,11 +366,11 @@ func (ar *AgentRunner) runInstance() error {
 			return err
 		}
 
-		_, err = runnerInstance.Configure(&proto.ConfigureRequest{
+		_, err = runnerInstance.Configure(&proto2.ConfigureRequest{
 			Config: pluginConfig.Config,
 		})
 		if err != nil {
-			result := runner.ErrorResult(&runner.Result{
+			result := runner2.ErrorResult(&runner2.Result{
 				Error:  err,
 				Labels: resultLabels,
 			})
@@ -380,9 +380,9 @@ func (ar *AgentRunner) runInstance() error {
 			return err
 		}
 
-		_, err = runnerInstance.PrepareForEval(&proto.PrepareForEvalRequest{})
+		_, err = runnerInstance.PrepareForEval(&proto2.PrepareForEvalRequest{})
 		if err != nil {
-			result := runner.ErrorResult(&runner.Result{
+			result := runner2.ErrorResult(&runner2.Result{
 				Error:  err,
 				Labels: resultLabels,
 			})
@@ -412,11 +412,11 @@ func (ar *AgentRunner) runInstance() error {
 			}
 			resultLabels["_stream"] = streamId.String()
 
-			res, err := runnerInstance.Eval(&proto.EvalRequest{
+			res, err := runnerInstance.Eval(&proto2.EvalRequest{
 				BundlePath: policyPath,
 			})
 			if err != nil {
-				result := runner.ErrorResult(&runner.Result{
+				result := runner2.ErrorResult(&runner2.Result{
 					Error:    err,
 					StreamID: streamId.String(),
 					Labels:   resultLabels,
@@ -429,9 +429,9 @@ func (ar *AgentRunner) runInstance() error {
 
 			logger.Debug("Obtained results from running plugin", "res", res)
 
-			findings := []*proto.Finding{}
+			findings := []*proto2.Finding{}
 
-			setupTasks := []*proto.Task{
+			setupTasks := []*proto2.Task{
 				ar.setupPluginTask.ToProtoStep(),
 				ar.setupPoliciesTask.ToProtoStep(),
 			}
@@ -443,7 +443,7 @@ func (ar *AgentRunner) runInstance() error {
 				findings = append(findings, finding)
 			}
 
-			result := runner.Result{
+			result := runner2.Result{
 				Title:        res.Title,
 				Status:       res.Status,
 				StreamID:     streamId.String(),
@@ -465,11 +465,11 @@ func (ar *AgentRunner) runInstance() error {
 	return nil
 }
 
-func (ar *AgentRunner) getRunnerInstance(logger hclog.Logger, path string) (runner.Runner, error) {
+func (ar *AgentRunner) getRunnerInstance(logger hclog.Logger, path string) (runner2.Runner, error) {
 	// We're a host! Start by launching the plugin process.
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig:  runner.HandshakeConfig,
-		Plugins:          runner.PluginMap,
+		HandshakeConfig:  runner2.HandshakeConfig,
+		Plugins:          runner2.PluginMap,
 		Managed:          true,
 		Cmd:              exec.Command(path),
 		Logger:           logger,
@@ -490,7 +490,7 @@ func (ar *AgentRunner) getRunnerInstance(logger hclog.Logger, path string) (runn
 
 	// We should have a Greeter now! This feels like a normal interface
 	// implementation but is in fact over an RPC connection.
-	runnerInstance := raw.(runner.Runner)
+	runnerInstance := raw.(runner2.Runner)
 	return runnerInstance, nil
 }
 

@@ -119,3 +119,6 @@ swag: ## swag setup and lint
 
 build-local:   ## build an image that can be used by the compliance-framework/local_dev repository
 	docker build -t ghcr.io/compliance-framework/configuration-service:latest_local .
+
+proto-gen: ## Generate objects from proto definitions
+	@buf generate

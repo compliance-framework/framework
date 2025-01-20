@@ -1,6 +1,8 @@
 package runner
 
-import "github.com/compliance-framework/framework/agent/runner/proto"
+import (
+	"github.com/compliance-framework/framework/runner/proto"
+)
 
 type Result struct {
 	Title        string                `json:"title"`
