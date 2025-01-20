@@ -1,6 +1,6 @@
 package event
 
-import "github.com/compliance-framework/configuration-service/domain"
+import "github.com/compliance-framework/framework/domain"
 
 type TopicType string
 

@@ -6,11 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/compliance-framework/configuration-service/api"
-	"github.com/compliance-framework/configuration-service/converters/labelfilter"
-	"github.com/compliance-framework/configuration-service/domain"
-	"github.com/compliance-framework/configuration-service/event/bus"
-	"github.com/compliance-framework/configuration-service/service"
+	"github.com/compliance-framework/framework/api"
+	"github.com/compliance-framework/framework/converters/labelfilter"
+	"github.com/compliance-framework/framework/domain"
+	"github.com/compliance-framework/framework/event/bus"
+	"github.com/compliance-framework/framework/service"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +21,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/compliance-framework/configuration-service/tests"
+	"github.com/compliance-framework/framework/tests"
 	"github.com/stretchr/testify/suite"
 )
 

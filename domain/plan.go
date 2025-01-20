@@ -2,7 +2,7 @@ package domain
 
 import (
 	"errors"
-	"github.com/compliance-framework/configuration-service/converters/labelfilter"
+	"github.com/compliance-framework/framework/converters/labelfilter"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

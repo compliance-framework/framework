@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/compliance-framework/framework/domain"
 	"log"
 
-	. "github.com/compliance-framework/configuration-service/domain"
-	"github.com/compliance-framework/configuration-service/event"
+	"github.com/compliance-framework/framework/event"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -26,7 +26,7 @@ func NewPlanService(db *mongo.Database, p event.Publisher) *PlanService {
 	}
 }
 
-func (s *PlanService) GetById(ctx context.Context, id string) (*Plan, error) {
+func (s *PlanService) GetById(ctx context.Context, id string) (*domain.Plan, error) {
 	objectId, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func (s *PlanService) GetById(ctx context.Context, id string) (*Plan, error) {
 		return nil, output.Err()
 	}
 
-	result := &Plan{}
+	result := &domain.Plan{}
 	err = output.Decode(result)
 	if err != nil {
 		return result, err
@@ -46,7 +46,7 @@ func (s *PlanService) GetById(ctx context.Context, id string) (*Plan, error) {
 	return result, nil
 }
 
-func (s *PlanService) Create(plan *Plan) (string, error) {
+func (s *PlanService) Create(plan *domain.Plan) (string, error) {
 	log.Println("Create")
 	result, err := s.planCollection.InsertOne(context.TODO(), plan)
 	if err != nil {
@@ -55,7 +55,7 @@ func (s *PlanService) Create(plan *Plan) (string, error) {
 	return result.InsertedID.(primitive.ObjectID).Hex(), nil
 }
 
-func (s *PlanService) CreateTask(planId string, task Task) (string, error) {
+func (s *PlanService) CreateTask(planId string, task domain.Task) (string, error) {
 	log.Println("CreateTask")
 	log.Println("planId: ", planId)
 	// Validate the task
@@ -63,11 +63,11 @@ func (s *PlanService) CreateTask(planId string, task Task) (string, error) {
 		return "", errors.New("task title cannot be empty")
 	}
 
-	if task.Type != TaskTypeMilestone && task.Type != TaskTypeAction {
+	if task.Type != domain.TaskTypeMilestone && task.Type != domain.TaskTypeAction {
 		return "", errors.New("task type must be either 'milestone' or 'action'")
 	}
 
-	task.Activities = []Activity{}
+	task.Activities = []domain.Activity{}
 
 	pid, err := primitive.ObjectIDFromHex(planId)
 	if err != nil {
@@ -89,7 +89,7 @@ func (s *PlanService) CreateTask(planId string, task Task) (string, error) {
 	return task.Id.Hex(), nil
 }
 
-func (s *PlanService) CreateActivity(planId string, taskId string, activity Activity) (string, error) {
+func (s *PlanService) CreateActivity(planId string, taskId string, activity domain.Activity) (string, error) {
 	log.Println("CreateActivity")
 	log.Println("planId: ", planId)
 	log.Println("taskId: ", taskId)
@@ -105,7 +105,7 @@ func (s *PlanService) CreateActivity(planId string, taskId string, activity Acti
 	activity.Id = primitive.NewObjectID()
 	filter := bson.D{bson.E{Key: "_id", Value: pid}, bson.E{Key: "tasks.id", Value: tid}}
 
-	var p Plan
+	var p domain.Plan
 	err = s.planCollection.FindOne(context.Background(), filter).Decode(&p)
 	if err != nil {
 		return "", err
@@ -151,7 +151,7 @@ func (s *PlanService) ActivatePlan(ctx context.Context, planId string) error {
 	return nil
 }
 
-func (s *PlanService) SaveSubject(subject Subject) error {
+func (s *PlanService) SaveSubject(subject domain.Subject) error {
 	log.Println("SaveSubject")
 	_, err := s.subjectCollection.InsertOne(context.Background(), subject)
 	if err != nil {
@@ -160,7 +160,7 @@ func (s *PlanService) SaveSubject(subject Subject) error {
 	return nil
 }
 
-func (s *PlanService) Risks(planId string, resultId string) ([]Risk, error) {
+func (s *PlanService) Risks(planId string, resultId string) ([]domain.Risk, error) {
 	log.Println("Risks", "planId: ", planId, "resultId: ", resultId)
 	pipeline := bson.A{
 		bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$tasks"}}}},
@@ -178,7 +178,7 @@ func (s *PlanService) Risks(planId string, resultId string) ([]Risk, error) {
 		return nil, err
 	}
 
-	var risks []Risk
+	var risks []domain.Risk
 	if err = cursor.All(context.Background(), &risks); err != nil {
 		return nil, err
 	}

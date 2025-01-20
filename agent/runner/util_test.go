@@ -1,7 +1,7 @@
 package runner
 
 import (
-	"github.com/compliance-framework/agent/runner/proto"
+	"github.com/compliance-framework/framework/agent/runner/proto"
 	"github.com/google/uuid"
 	"testing"
 )

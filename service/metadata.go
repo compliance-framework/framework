@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"github.com/compliance-framework/configuration-service/domain"
+	"github.com/compliance-framework/framework/domain"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )

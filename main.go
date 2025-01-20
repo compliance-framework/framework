@@ -2,19 +2,19 @@ package main
 
 import (
 	"context"
-	mongoStore "github.com/compliance-framework/configuration-service/store/mongo"
+	mongoStore "github.com/compliance-framework/framework/store/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"log"
 	"os"
 
-	"github.com/compliance-framework/configuration-service/runtime"
+	"github.com/compliance-framework/framework/runtime"
 
 	"github.com/joho/godotenv"
 
-	"github.com/compliance-framework/configuration-service/api"
-	"github.com/compliance-framework/configuration-service/api/handler"
-	"github.com/compliance-framework/configuration-service/event/bus"
-	"github.com/compliance-framework/configuration-service/service"
+	"github.com/compliance-framework/framework/api"
+	"github.com/compliance-framework/framework/api/handler"
+	"github.com/compliance-framework/framework/event/bus"
+	"github.com/compliance-framework/framework/service"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 )

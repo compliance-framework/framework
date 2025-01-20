@@ -1,6 +1,6 @@
 package internal
 
-import "github.com/compliance-framework/agent/runner/proto"
+import "github.com/compliance-framework/framework/agent/runner/proto"
 
 type Step struct {
 	Title       string

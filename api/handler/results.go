@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"github.com/compliance-framework/configuration-service/api"
-	"github.com/compliance-framework/configuration-service/converters/labelfilter"
-	"github.com/compliance-framework/configuration-service/domain"
-	"github.com/compliance-framework/configuration-service/service"
+	"github.com/compliance-framework/framework/api"
+	"github.com/compliance-framework/framework/converters/labelfilter"
+	"github.com/compliance-framework/framework/domain"
+	"github.com/compliance-framework/framework/service"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"go.mongodb.org/mongo-driver/bson/primitive"

@@ -1,6 +1,6 @@
 package handler
 
-import "github.com/compliance-framework/configuration-service/converters/labelfilter"
+import "github.com/compliance-framework/framework/converters/labelfilter"
 
 // idResponse is a struct that holds the ID of a model.
 // swagger:model

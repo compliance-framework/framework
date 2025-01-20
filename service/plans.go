@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"github.com/compliance-framework/configuration-service/event"
+	"github.com/compliance-framework/framework/event"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )

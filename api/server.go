@@ -3,9 +3,9 @@ package api
 import (
 	"context"
 
-	"github.com/compliance-framework/configuration-service/api/binders"
-	mw "github.com/compliance-framework/configuration-service/api/middleware"
-	_ "github.com/compliance-framework/configuration-service/docs"
+	"github.com/compliance-framework/framework/api/binders"
+	mw "github.com/compliance-framework/framework/api/middleware"
+	_ "github.com/compliance-framework/framework/docs"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	echoSwagger "github.com/swaggo/echo-swagger"

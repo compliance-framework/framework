@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/compliance-framework/configuration-service/domain"
-	"github.com/compliance-framework/configuration-service/event"
-	"github.com/compliance-framework/configuration-service/service"
+	"github.com/compliance-framework/framework/domain"
+	"github.com/compliance-framework/framework/event"
+	"github.com/compliance-framework/framework/service"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

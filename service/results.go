@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 	"errors"
-	"github.com/compliance-framework/configuration-service/converters/labelfilter"
-	"github.com/compliance-framework/configuration-service/domain"
+	"github.com/compliance-framework/framework/converters/labelfilter"
+	"github.com/compliance-framework/framework/domain"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

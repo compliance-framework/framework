@@ -4,8 +4,8 @@ package service
 
 import (
 	"context"
-	"github.com/compliance-framework/configuration-service/domain"
-	"github.com/compliance-framework/configuration-service/tests"
+	"github.com/compliance-framework/framework/domain"
+	"github.com/compliance-framework/framework/tests"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/suite"
 	"go.mongodb.org/mongo-driver/bson"

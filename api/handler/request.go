@@ -2,9 +2,9 @@ package handler
 
 import (
 	"errors"
-	"github.com/compliance-framework/configuration-service/converters/labelfilter"
+	"github.com/compliance-framework/framework/converters/labelfilter"
 
-	"github.com/compliance-framework/configuration-service/domain"
+	"github.com/compliance-framework/framework/domain"
 	"github.com/labstack/echo/v4"
 )
 

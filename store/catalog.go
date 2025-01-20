@@ -1,7 +1,7 @@
 package store
 
 import (
-	"github.com/compliance-framework/configuration-service/domain"
+	"github.com/compliance-framework/framework/domain"
 )
 
 type CatalogStore interface {

@@ -3,7 +3,7 @@ package runtime
 import (
 	"time"
 
-	"github.com/compliance-framework/configuration-service/domain"
+	"github.com/compliance-framework/framework/domain"
 	"github.com/google/uuid"
 )
 

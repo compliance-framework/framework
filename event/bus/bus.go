@@ -2,7 +2,7 @@ package bus
 
 import (
 	"encoding/json"
-	"github.com/compliance-framework/configuration-service/event"
+	"github.com/compliance-framework/framework/event"
 	"github.com/nats-io/nats.go"
 	"go.uber.org/zap"
 	"sync"

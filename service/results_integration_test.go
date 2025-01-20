@@ -5,7 +5,7 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/compliance-framework/configuration-service/converters/labelfilter"
+	"github.com/compliance-framework/framework/converters/labelfilter"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/compliance-framework/configuration-service/domain"
-	"github.com/compliance-framework/configuration-service/tests"
+	"github.com/compliance-framework/framework/domain"
+	"github.com/compliance-framework/framework/tests"
 	"github.com/stretchr/testify/suite"
 )
 

@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/compliance-framework/agent/internal"
-	"github.com/compliance-framework/agent/internal/event"
-	"github.com/compliance-framework/agent/runner"
-	"github.com/compliance-framework/agent/runner/proto"
+	"github.com/compliance-framework/framework/agent/internal"
+	"github.com/compliance-framework/framework/agent/internal/event"
+	"github.com/compliance-framework/framework/agent/runner"
+	"github.com/compliance-framework/framework/agent/runner/proto"
 	"github.com/compliance-framework/gooci/pkg/oci"
 	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/fsnotify/fsnotify"
@@ -261,26 +261,26 @@ type AgentRunner struct {
 func (ar *AgentRunner) Run() error {
 	ar.logger.Info("Starting agent", "daemon", ar.config.Daemon, "nats_uri", ar.config.Nats.Url)
 
-    const maxRetries = 10
-    for i := 1; i <= maxRetries; i++ {
-        err := ar.natsBus.Connect(ar.config.Nats.Url)
-        if err == nil {
-            log.Println("Connected to NATS successfully.")
-            return nil
-        }
+	const maxRetries = 10
+	for i := 1; i <= maxRetries; i++ {
+		err := ar.natsBus.Connect(ar.config.Nats.Url)
+		if err == nil {
+			log.Println("Connected to NATS successfully.")
+			return nil
+		}
 
-        // If we haven't reached the max attempts, wait and try again
-        if i < maxRetries {
-            log.Printf("Attempt %d/%d: Error connecting to NATS: %v. Retrying in 5 seconds...\n",
-                i, maxRetries, err)
-            time.Sleep(5 * time.Second)
-        } else {
-            // We've reached the maximum number of retries
-            log.Printf("Attempt %d/%d: Error connecting to NATS: %v. Giving up.\n",
-                i, maxRetries, err)
-            return err
-        }
-    }
+		// If we haven't reached the max attempts, wait and try again
+		if i < maxRetries {
+			log.Printf("Attempt %d/%d: Error connecting to NATS: %v. Retrying in 5 seconds...\n",
+				i, maxRetries, err)
+			time.Sleep(5 * time.Second)
+		} else {
+			// We've reached the maximum number of retries
+			log.Printf("Attempt %d/%d: Error connecting to NATS: %v. Giving up.\n",
+				i, maxRetries, err)
+			return err
+		}
+	}
 
 	defer ar.natsBus.Close()
 

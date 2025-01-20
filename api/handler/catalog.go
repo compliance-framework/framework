@@ -5,9 +5,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/compliance-framework/configuration-service/api"
-	"github.com/compliance-framework/configuration-service/domain"
-	"github.com/compliance-framework/configuration-service/store"
+	"github.com/compliance-framework/framework/api"
+	"github.com/compliance-framework/framework/domain"
+	"github.com/compliance-framework/framework/store"
 	"github.com/labstack/echo/v4"
 )
 
